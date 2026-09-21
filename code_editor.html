@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Code Editor</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- CodeMirror CSS & JS CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/nord.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/monokai.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/foldgutter.min.css">
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+  <!-- Modes -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/xml/xml.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/css/css.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/htmlmixed/htmlmixed.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/markdown/markdown.min.js"></script>
+  
+  <!-- Addons -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closebrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closetag.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/foldcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/foldgutter.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/xml-fold.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/comment/comment.min.js"></script>
+
+  <!-- JSZip -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <style>
+    :root {
+      --bg-primary: #121319;
+      --bg-secondary: #1a1c23;
+      --bg-tertiary: #222530;
+      --bg-hover: #2a2e3d;
+      --border-color: #2b2f3e;
+      --border-focus: #4b5268;
+      --text-main: #dce0e8;
+      --text-muted: #798296;
+      --accent: #5e81ac;
+      --accent-hover: #81a1c1;
+      --danger: #bf616a;
+      --success: #a3be8c;
+      --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-code: 'Fira Code', monospace;
+      --sidebar-width: 240px;
+      --topbar-height: 40px;
+      --statusbar-height: 24px;
+    }
+
+    body.theme-light {
+      --bg-primary: #f8f9fa;
+      --bg-secondary: #eceff4;
+      --bg-tertiary: #e5e9f0;
+      --bg-hover: #d8dee9;
+      --border-color: #d8dee9;
+      --border-focus: #4c566a;
+      --text-main: #2e3440;
+      --text-muted: #4c566a;
+      --accent: #4c566a;
+      --accent-hover: #3b4252;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: var(--font-ui);
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-size: 13px;
+      user-select: none;
+    }
+
+    .app-header {
+      height: var(--topbar-height);
+      background-color: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.5px;
+      color: var(--text-main);
+    }
+
+    .brand-icon {
+      width: 12px;
+      height: 12px;
+      background-color: var(--text-main);
+      border-radius: 2px;
+      transform: rotate(45deg);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn {
+      background: var(--bg-tertiary);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      font-family: var(--font-ui);
+    }
+
+    .btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-focus);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .main-container {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - var(--topbar-height) - var(--statusbar-height));
+      position: relative;
+    }
+
+    /* Sidebar Navigation Strip + Panel */
+    .sidebar {
+      width: var(--sidebar-width);
+      background-color: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      transition: width 0.2s ease;
+      position: relative;
+    }
+
+    .sidebar.collapsed {
+      width: 0px;
+      overflow: hidden;
+      border-right: none;
+    }
+
+    .sidebar-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-primary);
+    }
+
+    .sidebar-tab {
+      flex: 1;
+      text-align: center;
+      padding: 8px 0;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+
+    .sidebar-tab.active {
+      color: var(--text-main);
+      border-bottom-color: var(--text-main);
+      background: var(--bg-secondary);
+    }
+
+    .sidebar-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+    }
+
+    .sidebar-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .file-tree {
+      list-style: none;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 12px;
+      margin-bottom: 2px;
+    }
+
+    .file-item:hover {
+      background: var(--bg-hover);
+      color: var(--text-main);
+    }
+
+    .file-item.active {
+      background: var(--bg-tertiary);
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .file-item-name {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-actions {
+      display: none;
+      gap: 4px;
+    }
+
+    .file-item:hover .file-actions {
+      display: flex;
+    }
+
+    .icon-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 11px;
+      padding: 2px;
+      border-radius: 2px;
+    }
+
+    .icon-btn:hover {
+      color: var(--text-main);
+    }
+
+    /* Workspace Content Area */
+    .editor-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-primary);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* File Tabs Header */
+    .tab-bar {
+      display: flex;
+      background-color: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+
+    .tab-bar::-webkit-scrollbar {
+      height: 3px;
+    }
+
+    .tab {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+      min-width: 110px;
+      max-width: 180px;
+      position: relative;
+    }
+
+    .tab.active {
+      background: var(--bg-primary);
+      color: var(--text-main);
+      border-top: 2px solid var(--text-main);
+    }
+
+    .tab-title {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tab-close {
+      border-radius: 50%;
+      width: 14px;
+      height: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+    }
+
+    .tab-close:hover {
+      background: var(--bg-hover);
+      color: var(--danger);
+    }
+
+    /* Editor + Split Preview Workspace */
+    .workspace-split {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .workspace-split.vertical {
+      flex-direction: column;
+    }
+
+    .code-container {
+      flex: 1;
+      height: 100%;
+      position: relative;
+    }
+
+    .CodeMirror {
+      height: 100% !important;
+      font-family: var(--font-code) !important;
+      font-size: 13px !important;
+      line-height: 1.6 !important;
+      background-color: var(--bg-primary) !important;
+      color: var(--text-main) !important;
+    }
+
+    .CodeMirror-gutters {
+      background-color: var(--bg-primary) !important;
+      border-right: 1px solid var(--border-color) !important;
+    }
+
+    /* Preview Iframe Panel */
+    .preview-container {
+      flex: 1;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    .workspace-split.vertical .preview-container {
+      border-left: none;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .preview-container.hidden {
+      display: none;
+    }
+
+    .preview-header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 4px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    .preview-iframe {
+      width: 100%;
+      flex: 1;
+      border: none;
+      background: white;
+    }
+
+    /* Status Bar */
+    .status-bar {
+      height: var(--statusbar-height);
+      background-color: var(--bg-secondary);
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 80px;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-box {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      width: 500px;
+      max-width: 90vw;
+      border-radius: 6px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .command-input {
+      width: 100%;
+      background: var(--bg-primary);
+      border: none;
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 16px;
+      color: var(--text-main);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .command-list {
+      max-height: 280px;
+      overflow-y: auto;
+      list-style: none;
+    }
+
+    .command-item {
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .command-item.selected, .command-item:hover {
+      background: var(--bg-hover);
+      color: var(--text-main);
+    }
+
+    /* Form Controls for Sidebar Tools & Settings */
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .form-control {
+      width: 100%;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      padding: 6px 10px;
+      color: var(--text-main);
+      border-radius: 4px;
+      font-family: var(--font-code);
+      font-size: 12px;
+      outline: none;
+    }
+
+    .form-control:focus {
+      border-color: var(--border-focus);
+    }
+
+    .snippet-card {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+    }
+
+    .snippet-card:hover {
+      border-color: var(--border-focus);
+    }
+
+    .snippet-title {
+      font-weight: 500;
+      color: var(--text-main);
+      margin-bottom: 2px;
+    }
+
+    .snippet-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="brand">
+      <button class="icon-btn" id="toggle-sidebar-btn" title="Toggle Sidebar (Ctrl+B)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+      <div class="brand-icon"></div>
+      <span>CODE EDITOR</span>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn" id="run-preview-btn" title="Toggle / Refresh Live Preview (Ctrl+Enter)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span>Preview</span>
+      </button>
+      <button class="btn" id="palette-btn" title="Command Palette (Ctrl+Shift+P)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span>Cmd Palette</span>
+      </button>
+      <button class="btn btn-primary" id="export-btn" title="Export Workspace to ZIP">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>Export</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-tabs">
+        <div class="sidebar-tab active" data-tab="files">Files</div>
+        <div class="sidebar-tab" data-tab="snippets">Snippets</div>
+        <div class="sidebar-tab" data-tab="tools">Tools</div>
+        <div class="sidebar-tab" data-tab="settings">Config</div>
+      </div>
+
+      <div class="sidebar-content">
+        <!-- Files Panel -->
+        <div id="panel-files" class="panel-section">
+          <div class="sidebar-section-title">
+            <span>Explorer</span>
+            <button class="icon-btn" id="new-file-btn" title="New File">+</button>
+          </div>
+          <ul class="file-tree" id="file-list"></ul>
+        </div>
+
+        <!-- Snippets Panel -->
+        <div id="panel-snippets" class="panel-section" style="display:none;">
+          <div class="sidebar-section-title">Boilerplates</div>
+          <div class="snippet-card" data-snippet="html5">
+            <div class="snippet-title">HTML5 Template</div>
+            <div class="snippet-desc">Standard HTML5 document structure with head tags</div>
+          </div>
+          <div class="snippet-card" data-snippet="cssreset">
+            <div class="snippet-title">Modern CSS Reset</div>
+            <div class="snippet-desc">Minimal universal box-sizing & margin reset</div>
+          </div>
+          <div class="snippet-card" data-snippet="jsfetch">
+            <div class="snippet-title">JS Fetch Async</div>
+            <div class="snippet-desc">Async/await API request pattern with error handling</div>
+          </div>
+          <div class="snippet-card" data-snippet="flexcenter">
+            <div class="snippet-title">CSS Flex Center</div>
+            <div class="snippet-desc">Center content horizontally & vertically</div>
+          </div>
+        </div>
+
+        <!-- Developer Tools Panel -->
+        <div id="panel-tools" class="panel-section" style="display:none;">
+          <div class="sidebar-section-title">Utilities</div>
+          
+          <div style="margin-bottom: 16px;">
+            <label style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:4px;">Quick Color Picker</label>
+            <div style="display:flex; gap:6px;">
+              <input type="color" id="color-picker" value="#5e81ac" style="border:none; width:30px; height:28px; background:none; cursor:pointer;">
+              <input type="text" id="color-hex-val" class="form-control" value="#5e81ac" readonly>
+              <button class="btn" id="insert-color-btn">Insert</button>
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:4px;">Regex Inspector</label>
+            <input type="text" id="regex-pattern" class="form-control" placeholder="Pattern (e.g. [a-z]+)" style="margin-bottom:6px;">
+            <input type="text" id="regex-input" class="form-control" placeholder="Test String" style="margin-bottom:6px;">
+            <div id="regex-result" style="font-size:11px; color:var(--accent); min-height:18px;"></div>
+          </div>
+        </div>
+
+        <!-- Settings Panel -->
+        <div id="panel-settings" class="panel-section" style="display:none;">
+          <div class="sidebar-section-title">Editor Settings</div>
+          
+          <div class="form-group">
+            <label>Theme Preset</label>
+            <select id="setting-theme" class="form-control">
+              <option value="dracula">Dracula Dark</option>
+              <option value="nord">Nord Minimal</option>
+              <option value="monokai">Monokai Clean</option>
+              <option value="light">Paper Light</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Font Size (px)</label>
+            <input type="number" id="setting-fontsize" class="form-control" value="13" min="10" max="24">
+          </div>
+
+          <div class="form-group">
+            <label>Tab Size</label>
+            <select id="setting-tabsize" class="form-control">
+              <option value="2">2 Spaces</option>
+              <option value="4" selected>4 Spaces</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Word Wrap</label>
+            <select id="setting-wordwrap" class="form-control">
+              <option value="off">Off</option>
+              <option value="on">On</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="editor-wrapper">
+      <div class="tab-bar" id="tab-bar"></div>
+
+      <div class="workspace-split" id="workspace-split">
+        <div class="code-container">
+          <textarea id="codemirror-editor"></textarea>
+        </div>
+
+        <div class="preview-container hidden" id="preview-pane">
+          <div class="preview-header">
+            <span>LIVE PREVIEW</span>
+            <div style="display:flex; gap:6px;">
+              <button class="icon-btn" id="toggle-split-dir-btn" title="Toggle Split Direction">⇄ Split</button>
+              <button class="icon-btn" id="refresh-preview-btn" title="Refresh Preview">↻ Refresh</button>
+              <button class="icon-btn" id="close-preview-btn" title="Close Preview">✕</button>
+            </div>
+          </div>
+          <iframe class="preview-iframe" id="preview-iframe"></iframe>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <footer class="status-bar">
+    <div class="status-item">
+      <span id="status-file-info">index.html</span>
+      <span id="status-sync-state" style="color:var(--success);">● Saved locally</span>
+    </div>
+    <div class="status-item">
+      <span id="status-cursor-pos">Ln 1, Col 1</span>
+      <span id="status-file-type">HTML</span>
+      <span>UTF-8</span>
+    </div>
+  </footer>
+
+  <!-- Modal Overlay / Command Palette -->
+  <div class="modal-overlay" id="command-modal">
+    <div class="modal-box">
+      <input type="text" class="command-input" id="command-search" placeholder="Type a command or file name..." autocomplete="off">
+      <ul class="command-list" id="command-list"></ul>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_FILES = {
+      'index.html': `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Editor Preview</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="card">
+    <h1>Code Editor</h1>
+    <p>A sleek, ultra-minimal environment designed for seamless coding.</p>
+    <button id="action-btn">Click Me</button>
+  </div>
+  <script src="app.js"><\/script>
+</body>
+</html>`,
+      'style.css': `body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: #121319;
+  color: #dce0e8;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.card {
+  background: #1a1c23;
+  padding: 2.5rem;
+  border-radius: 8px;
+  border: 1px solid #2b2f3e;
+  text-align: center;
+}
+
+h1 {
+  margin-top: 0;
+  color: #88c0d0;
+}
+
+button {
+  background: #5e81ac;
+  border: none;
+  color: white;
+  padding: 8px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+button:hover {
+  background: #81a1c1;
+}`,
+      'app.js': `// Code Editor Script
+document.getElementById('action-btn').addEventListener('click', () => {
+  alert('Connected to Code Editor!');
+});`
+    };
+
+    let files = {};
+    let openTabs = [];
+    let activeFile = null;
+    let editor = null;
+    let autoPreviewTimeout = null;
+
+    function loadWorkspace() {
+      const stored = localStorage.getItem('code_editor_files');
+      if (stored) {
+        try { files = JSON.parse(stored); } catch (e) { files = { ...DEFAULT_FILES }; }
+      } else {
+        files = { ...DEFAULT_FILES };
+      }
+      openTabs = Object.keys(files);
+      activeFile = openTabs[0] || null;
+    }
+
+    function saveWorkspace() {
+      localStorage.setItem('code_editor_files', JSON.stringify(files));
+      const syncEl = document.getElementById('status-sync-state');
+      syncEl.textContent = '● Saved locally';
+      syncEl.style.color = 'var(--success)';
+    }
+
+    function initEditor() {
+      const textarea = document.getElementById('codemirror-editor');
+      
+      editor = CodeMirror.fromTextArea(textarea, {
+        lineNumbers: true,
+        theme: 'dracula',
+        mode: 'htmlmixed',
+        autoCloseBrackets: true,
+        autoCloseTags: true,
+        foldGutter: true,
+        gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+        indentUnit: 4,
+        tabSize: 4,
+        lineWrapping: false,
+        extraKeys: {
+          "Ctrl-/": function(cm) { cm.toggleComment(); },
+          "Cmd-/": function(cm) { cm.toggleComment(); },
+          "Shift-Tab": function(cm) { cm.indentSelection("left"); },
+          "Tab": function(cm) {
+            if (cm.somethingSelected()) {
+              cm.indentSelection("right");
+            } else {
+              cm.replaceSelection("    ", "end");
+            }
+          },
+          "Shift-Alt-Down": function(cm) {
+            const cursor = cm.getCursor();
+            const line = cm.getLine(cursor.line);
+            cm.replaceRange(line + "\n", { line: cursor.line, ch: 0 });
+          }
+        }
+      });
+
+      editor.on('change', () => {
+        if (activeFile && files[activeFile] !== undefined) {
+          files[activeFile] = editor.getValue();
+          const syncEl = document.getElementById('status-sync-state');
+          syncEl.textContent = '● Syncing...';
+          syncEl.style.color = 'var(--accent)';
+          
+          clearTimeout(autoPreviewTimeout);
+          autoPreviewTimeout = setTimeout(() => {
+            saveWorkspace();
+            updateLivePreview();
+          }, 600);
+        }
+      });
+
+      editor.on('cursorActivity', () => {
+        const pos = editor.getCursor();
+        document.getElementById('status-cursor-pos').textContent = `Ln ${pos.line + 1}, Col ${pos.ch + 1}`;
+      });
+    }
+
+    function getModeForFile(filename) {
+      const ext = filename.split('.').pop().toLowerCase();
+      switch (ext) {
+        case 'html': return 'htmlmixed';
+        case 'css': return 'css';
+        case 'js': return 'javascript';
+        case 'json': return { name: 'javascript', json: true };
+        case 'py': return 'python';
+        case 'md': return 'markdown';
+        default: return 'htmlmixed';
+      }
+    }
+
+    function renderFileList() {
+      const fileListEl = document.getElementById('file-list');
+      fileListEl.innerHTML = '';
+
+      Object.keys(files).forEach(filename => {
+        const li = document.createElement('li');
+        li.className = `file-item ${filename === activeFile ? 'active' : ''}`;
+        
+        li.innerHTML = `
+          <div class="file-item-name">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+            <span>${filename}</span>
+          </div>
+          <div class="file-actions">
+            <button class="icon-btn rename-btn" title="Rename">✎</button>
+            <button class="icon-btn delete-btn" title="Delete">✕</button>
+          </div>
+        `;
+
+        li.addEventListener('click', (e) => {
+          if (!e.target.classList.contains('icon-btn')) openFile(filename);
+        });
+
+        li.querySelector('.rename-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          renameFile(filename);
+        });
+
+        li.querySelector('.delete-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          deleteFile(filename);
+        });
+
+        fileListEl.appendChild(li);
+      });
+    }
+
+    function renderTabs() {
+      const tabBar = document.getElementById('tab-bar');
+      tabBar.innerHTML = '';
+
+      openTabs.forEach(filename => {
+        const tab = document.createElement('div');
+        tab.className = `tab ${filename === activeFile ? 'active' : ''}`;
+        
+        tab.innerHTML = `
+          <span class="tab-title">${filename}</span>
+          <span class="tab-close" title="Close Tab">✕</span>
+        `;
+
+        tab.addEventListener('click', (e) => {
+          if (e.target.classList.contains('tab-close')) {
+            e.stopPropagation();
+            closeTab(filename);
+          } else {
+            openFile(filename);
+          }
+        });
+
+        tabBar.appendChild(tab);
+      });
+    }
+
+    function openFile(filename) {
+      if (!files[filename] && files[filename] !== '') return;
+
+      if (!openTabs.includes(filename)) openTabs.push(filename);
+      activeFile = filename;
+
+      editor.setValue(files[filename]);
+      editor.setOption('mode', getModeForFile(filename));
+      editor.clearHistory();
+
+      document.getElementById('status-file-info').textContent = filename;
+      document.getElementById('status-file-type').textContent = filename.split('.').pop().toUpperCase();
+
+      renderFileList();
+      renderTabs();
+    }
+
+    function closeTab(filename) {
+      openTabs = openTabs.filter(t => t !== filename);
+      if (activeFile === filename) activeFile = openTabs[openTabs.length - 1] || null;
+      if (activeFile) {
+        openFile(activeFile);
+      } else {
+        editor.setValue('');
+        document.getElementById('status-file-info').textContent = 'No file open';
+      }
+      renderTabs();
+      renderFileList();
+    }
+
+    function createNewFile() {
+      const name = prompt('Enter new file name:', 'untitled.js');
+      if (name && name.trim() !== '') {
+        const cleanName = name.trim();
+        if (files[cleanName]) return alert('A file with this name already exists.');
+        files[cleanName] = '';
+        saveWorkspace();
+        openFile(cleanName);
+      }
+    }
+
+    function renameFile(oldName) {
+      const newName = prompt('Enter new file name:', oldName);
+      if (newName && newName.trim() !== '' && newName !== oldName) {
+        const cleanName = newName.trim();
+        files[cleanName] = files[oldName];
+        delete files[oldName];
+
+        openTabs = openTabs.map(t => t === oldName ? cleanName : t);
+        if (activeFile === oldName) activeFile = cleanName;
+
+        saveWorkspace();
+        renderFileList();
+        renderTabs();
+      }
+    }
+
+    function deleteFile(filename) {
+      if (confirm(`Delete ${filename}?`)) {
+        delete files[filename];
+        closeTab(filename);
+        saveWorkspace();
+      }
+    }
+
+    function updateLivePreview() {
+      const previewPane = document.getElementById('preview-pane');
+      if (previewPane.classList.contains('hidden')) return;
+
+      const iframe = document.getElementById('preview-iframe');
+      let htmlContent = files['index.html'] || '<html><body><p>No index.html found</p></body></html>';
+      
+      if (files['style.css']) {
+        const styleTag = `<style>${files['style.css']}</style>`;
+        htmlContent = htmlContent.includes('</head>') 
+          ? htmlContent.replace('</head>', `${styleTag}</head>`) 
+          : styleTag + htmlContent;
+      }
+
+      if (files['app.js']) {
+        const scriptTag = `<script>${files['app.js']}<\/script>`;
+        htmlContent = htmlContent.includes('</body>') 
+          ? htmlContent.replace('</body>', `${scriptTag}</body>`) 
+          : htmlContent + scriptTag;
+      }
+
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      iframe.src = URL.createObjectURL(blob);
+    }
+
+    function setupCommandPalette() {
+      const modal = document.getElementById('command-modal');
+      const input = document.getElementById('command-search');
+      const list = document.getElementById('command-list');
+
+      const commands = [
+        { name: 'Toggle Live Preview', action: () => togglePreview() },
+        { name: 'New File', action: () => createNewFile() },
+        { name: 'Export Workspace (ZIP)', action: () => exportWorkspace() },
+        { name: 'Format Code Indentation', action: () => formatCode() },
+        { name: 'Theme: Dracula Dark', action: () => setTheme('dracula') },
+        { name: 'Theme: Nord Minimal', action: () => setTheme('nord') },
+        { name: 'Theme: Monokai Clean', action: () => setTheme('monokai') },
+        { name: 'Theme: Paper Light', action: () => setTheme('light') }
+      ];
+
+      function openPalette() {
+        modal.classList.add('active');
+        input.value = '';
+        input.focus();
+        renderCommands('');
+      }
+
+      function closePalette() { modal.classList.remove('active'); }
+
+      function renderCommands(filter) {
+        list.innerHTML = '';
+        const matchingCmds = commands.filter(c => c.name.toLowerCase().includes(filter.toLowerCase()));
+        
+        Object.keys(files).forEach(file => {
+          if (file.toLowerCase().includes(filter.toLowerCase())) {
+            matchingCmds.push({
+              name: `Open File: ${file}`,
+              action: () => openFile(file)
+            });
+          }
+        });
+
+        matchingCmds.forEach((cmd, idx) => {
+          const li = document.createElement('li');
+          li.className = `command-item ${idx === 0 ? 'selected' : ''}`;
+          li.innerHTML = `<span>${cmd.name}</span>`;
+          li.addEventListener('click', () => {
+            cmd.action();
+            closePalette();
+          });
+          list.appendChild(li);
+        });
+      }
+
+      input.addEventListener('input', (e) => renderCommands(e.target.value));
+      modal.addEventListener('click', (e) => { if (e.target === modal) closePalette(); });
+      document.getElementById('palette-btn').addEventListener('click', openPalette);
+
+      window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
+          e.preventDefault(); openPalette();
+        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+          e.preventDefault(); toggleSidebar();
+        } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault(); togglePreview();
+        } else if (e.key === 'Escape') {
+          closePalette();
+        }
+      });
+    }
+
+    function togglePreview() {
+      const pane = document.getElementById('preview-pane');
+      pane.classList.toggle('hidden');
+      if (!pane.classList.contains('hidden')) updateLivePreview();
+    }
+
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('collapsed');
+    }
+
+    function exportWorkspace() {
+      const zip = new JSZip();
+      Object.keys(files).forEach(filename => {
+        zip.file(filename, files[filename]);
+      });
+      zip.generateAsync({ type: 'blob' }).then(content => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(content);
+        a.download = 'code-editor-project.zip';
+        a.click();
+      });
+    }
+
+    function formatCode() {
+      const totalLines = editor.lineCount();
+      for (let i = 0; i < totalLines; i++) {
+        editor.indentLine(i);
+      }
+    }
+
+    function setTheme(themeName) {
+      if (themeName === 'light') {
+        document.body.classList.add('theme-light');
+        editor.setOption('theme', 'default');
+      } else {
+        document.body.classList.remove('theme-light');
+        editor.setOption('theme', themeName);
+      }
+      document.getElementById('setting-theme').value = themeName;
+    }
+
+    function setupSidebarPanels() {
+      const tabs = document.querySelectorAll('.sidebar-tab');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          tabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+
+          const target = tab.dataset.tab;
+          document.querySelectorAll('.panel-section').forEach(p => p.style.display = 'none');
+          document.getElementById(`panel-${target}`).style.display = 'block';
+        });
+      });
+
+      const snippets = {
+        html5: `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>Document</title>\n</head>\n<body>\n  \n</body>\n</html>`,
+        cssreset: `* {\n  box-sizing: border-box;\n  margin: 0;\n  padding: 0;\n}`,
+        jsfetch: `async function fetchData(url) {\n  try {\n    const res = await fetch(url);\n    const data = await res.json();\n    return data;\n  } catch (err) {\n    console.error(err);\n  }\n}`,
+        flexcenter: `display: flex;\njustify-content: center;\nalign-items: center;`
+      };
+
+      document.querySelectorAll('.snippet-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const type = card.dataset.snippet;
+          if (snippets[type]) editor.replaceSelection(snippets[type]);
+        });
+      });
+
+      const colorPicker = document.getElementById('color-picker');
+      const colorHex = document.getElementById('color-hex-val');
+      colorPicker.addEventListener('input', (e) => { colorHex.value = e.target.value; });
+      document.getElementById('insert-color-btn').addEventListener('click', () => {
+        editor.replaceSelection(colorHex.value);
+      });
+
+      const regPattern = document.getElementById('regex-pattern');
+      const regInput = document.getElementById('regex-input');
+      const regResult = document.getElementById('regex-result');
+
+      function testRegex() {
+        if (!regPattern.value) return regResult.textContent = '';
+        try {
+          const rx = new RegExp(regPattern.value, 'g');
+          const matches = regInput.value.match(rx);
+          regResult.textContent = matches ? `Matches: ${matches.join(', ')}` : 'No match found';
+        } catch (e) {
+          regResult.textContent = 'Invalid pattern';
+        }
+      }
+
+      regPattern.addEventListener('input', testRegex);
+      regInput.addEventListener('input', testRegex);
+
+      document.getElementById('setting-theme').addEventListener('change', (e) => setTheme(e.target.value));
+      document.getElementById('setting-fontsize').addEventListener('change', (e) => {
+        editor.getWrapperElement().style.fontSize = e.target.value + 'px';
+        editor.refresh();
+      });
+      document.getElementById('setting-tabsize').addEventListener('change', (e) => {
+        const val = parseInt(e.target.value);
+        editor.setOption('tabSize', val);
+        editor.setOption('indentUnit', val);
+      });
+      document.getElementById('setting-wordwrap').addEventListener('change', (e) => {
+        editor.setOption('lineWrapping', e.target.value === 'on');
+      });
+    }
+
+    window.onload = function() {
+      loadWorkspace();
+      initEditor();
+      renderFileList();
+      renderTabs();
+      setupCommandPalette();
+      setupSidebarPanels();
+
+      if (activeFile) openFile(activeFile);
+
+      document.getElementById('toggle-sidebar-btn').addEventListener('click', toggleSidebar);
+      document.getElementById('new-file-btn').addEventListener('click', createNewFile);
+      document.getElementById('run-preview-btn').addEventListener('click', togglePreview);
+      document.getElementById('refresh-preview-btn').addEventListener('click', updateLivePreview);
+      document.getElementById('close-preview-btn').addEventListener('click', togglePreview);
+      document.getElementById('export-btn').addEventListener('click', exportWorkspace);
+
+      document.getElementById('toggle-split-dir-btn').addEventListener('click', () => {
+        document.getElementById('workspace-split').classList.toggle('vertical');
+      });
+    };
+  </script>
+</body>
+</html>
