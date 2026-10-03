@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-[#FAFAF7] text-[#1A1918] antialiased">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Space Planner</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fbf8f3',
+              100: '#f5eee3',
+              200: '#ebdbc4',
+              500: '#c29b63',
+              600: '#a37b45',
+              900: '#2b2113',
+            },
+            oat: '#F4F0EA',
+            charcoal: '#1A1918',
+            warmwhite: '#FAFAF7',
+          },
+          fontFamily: {
+            sans: ['Inter', 'Plus Jakarta Sans', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts & FontAwesome Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Libraries: Three.js, jsPDF & html2canvas for PDF Export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <style>
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d4cece; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #b0a8a8; }
+    
+    /* Blueprint Background Pattern */
+    .blueprint-bg {
+      background-color: #FAFAF7;
+      background-image: 
+        linear-gradient(rgba(26, 25, 24, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(26, 25, 24, 0.04) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    .dark-grid-bg {
+      background-color: #1A1918;
+      background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col overflow-hidden font-sans select-none blueprint-bg">
+
+  <!-- Top Navigation Header -->
+  <header class="h-16 bg-white/90 backdrop-blur border-b border-stone-200 px-6 flex items-center justify-between shrink-0 z-30 shadow-sm">
+    <div class="flex items-center space-x-4">
+      <div class="w-10 h-10 bg-charcoal rounded-xl flex items-center justify-center text-white shadow-md">
+        <i class="fa-solid font-bold text-lg fa-cube"></i>
+      </div>
+      <div>
+        <h1 class="font-bold text-lg tracking-tight text-charcoal flex items-center gap-2">
+          3D Space Planner
+          <span class="px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-800 rounded-full uppercase tracking-wider">Commercial Pro</span>
+        </h1>
+        <p class="text-xs text-stone-500 font-mono">v3.5 • Real-Time Spatial Analytics & Spec Generator</p>
+      </div>
+    </div>
+
+    <!-- View Mode Switcher -->
+    <div class="flex items-center bg-stone-100 p-1 rounded-xl border border-stone-200 shadow-inner">
+      <button id="view2dBtn" onclick="setViewMode('2d')" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all bg-white text-charcoal shadow-sm">
+        <i class="fa-solid fa-map-location-dot"></i> 2D Blueprint
+      </button>
+      <button id="view3dBtn" onclick="setViewMode('3d')" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all text-stone-600 hover:text-charcoal">
+        <i class="fa-solid fa-cube"></i> 3D Perspective
+      </button>
+      <button id="viewSplitBtn" onclick="setViewMode('split')" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all text-stone-600 hover:text-charcoal">
+        <i class="fa-solid fa-columns"></i> Split View
+      </button>
+    </div>
+
+    <!-- Action Toolbars -->
+    <div class="flex items-center space-x-3">
+      <button onclick="toggleFireSafetyMode()" id="fireSafetyBtn" class="px-3.5 py-2 rounded-xl text-xs font-semibold border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition-all flex items-center gap-2 shadow-sm">
+        <i class="fa-solid fa-fire-extinguisher"></i>
+        <span>Fire & Egress</span>
+      </button>
+
+      <button onclick="toggleHeatmap()" id="heatmapBtn" class="px-3.5 py-2 rounded-xl text-xs font-semibold border border-stone-200 bg-white text-stone-700 hover:bg-stone-50 transition-all flex items-center gap-2 shadow-sm">
+        <i class="fa-solid fa-lightbulb"></i>
+        <span>Lighting Heatmap</span>
+      </button>
+
+      <button onclick="exportPdfSpec()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-charcoal text-white hover:bg-stone-800 transition-all flex items-center gap-2 shadow-md hover:shadow-lg">
+        <i class="fa-solid fa-file-pdf text-amber-400"></i>
+        <span>Export Spec Sheet</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Interactive Body -->
+  <main class="flex-1 flex overflow-hidden relative">
+
+    <!-- Left Sidebar: Architectural Controls, Catalog & Lighting -->
+    <aside id="leftSidebar" class="w-80 bg-white border-r border-stone-200 flex flex-col z-20 shadow-lg transition-all duration-300">
+      
+      <!-- Sidebar Nav Tabs -->
+      <div class="flex border-b border-stone-200 bg-stone-50 text-xs font-medium">
+        <button onclick="switchTab('arch')" id="tab-arch" class="flex-1 py-3 border-b-2 border-charcoal font-semibold text-charcoal bg-white flex items-center justify-center gap-2">
+          <i class="fa-solid fa-vector-square"></i> Room
+        </button>
+        <button onclick="switchTab('catalog')" id="tab-catalog" class="flex-1 py-3 border-b-2 border-transparent text-stone-500 hover:text-stone-800 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-couch"></i> Catalog
+        </button>
+        <button onclick="switchTab('env')" id="tab-env" class="flex-1 py-3 border-b-2 border-transparent text-stone-500 hover:text-stone-800 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-sun"></i> Lighting
+        </button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-6">
+
+        <!-- TAB 1: ARCHITECTURAL & BOUNDARY SETTINGS -->
+        <div id="content-arch" class="space-y-5">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-stone-400">Room Dimensions</h2>
+          
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-stone-600 block mb-1">Width (m)</label>
+              <input type="number" id="roomWidthInput" min="4" max="30" value="12" step="0.5" class="w-full bg-stone-50 border border-stone-300 rounded-lg px-3 py-1.5 text-xs font-mono font-semibold focus:outline-none focus:border-charcoal">
+            </div>
+            <div>
+              <label class="text-xs text-stone-600 block mb-1">Length (m)</label>
+              <input type="number" id="roomLengthInput" min="4" max="30" value="10" step="0.5" class="w-full bg-stone-50 border border-stone-300 rounded-lg px-3 py-1.5 text-xs font-mono font-semibold focus:outline-none focus:border-charcoal">
+            </div>
+          </div>
+
+          <div>
+            <label class="text-xs text-stone-600 block mb-1">Ceiling Height (m)</label>
+            <input type="range" id="ceilingHeightInput" min="2.5" max="6.0" value="3.5" step="0.1" class="w-full accent-charcoal">
+            <div class="flex justify-between text-[10px] font-mono text-stone-500 mt-1">
+              <span>2.5m</span> <span id="ceilingHeightVal">3.5m</span> <span>6.0m</span>
+            </div>
+          </div>
+
+          <!-- Wall Visibility Toggles -->
+          <div>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">Wall Visibility</h2>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <label class="flex items-center gap-2 p-2 rounded bg-stone-50 border border-stone-200 cursor-pointer">
+                <input type="checkbox" id="wallNorth" checked class="accent-charcoal"> North Wall
+              </label>
+              <label class="flex items-center gap-2 p-2 rounded bg-stone-50 border border-stone-200 cursor-pointer">
+                <input type="checkbox" id="wallSouth" checked class="accent-charcoal"> South Wall
+              </label>
+              <label class="flex items-center gap-2 p-2 rounded bg-stone-50 border border-stone-200 cursor-pointer">
+                <input type="checkbox" id="wallEast" checked class="accent-charcoal"> East Wall
+              </label>
+              <label class="flex items-center gap-2 p-2 rounded bg-stone-50 border border-stone-200 cursor-pointer">
+                <input type="checkbox" id="wallWest" checked class="accent-charcoal"> West Wall
+              </label>
+            </div>
+          </div>
+
+          <!-- Floor Finishes -->
+          <div>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">Floor Material & Finish</h2>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="setFloorMaterial('oak')" class="p-2 border border-stone-200 rounded-lg text-left hover:border-charcoal transition-all bg-amber-50/50">
+                <div class="font-semibold text-xs text-stone-800">Warm Oak</div>
+                <div class="text-[10px] text-stone-500">Parquet Wood</div>
+              </button>
+              <button onclick="setFloorMaterial('concrete')" class="p-2 border border-stone-200 rounded-lg text-left hover:border-charcoal transition-all bg-stone-100">
+                <div class="font-semibold text-xs text-stone-800">Polished Concrete</div>
+                <div class="text-[10px] text-stone-500">Industrial Gray</div>
+              </button>
+              <button onclick="setFloorMaterial('terrazzo')" class="p-2 border border-stone-200 rounded-lg text-left hover:border-charcoal transition-all bg-rose-50/40">
+                <div class="font-semibold text-xs text-stone-800">Terrazzo Speckle</div>
+                <div class="text-[10px] text-stone-500">Modern Composite</div>
+              </button>
+              <button onclick="setFloorMaterial('blueprint')" class="p-2 border border-stone-200 rounded-lg text-left hover:border-charcoal transition-all bg-blue-50">
+                <div class="font-semibold text-xs text-stone-800">Blueprint Grid</div>
+                <div class="text-[10px] text-stone-500">CAD Style Grid</div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Structural Elements -->
+          <div>
+            <h2 class="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">Openings & Doors</h2>
+            <div class="flex gap-2">
+              <button onclick="addArchitecturalOpening('door')" class="flex-1 py-2 px-3 bg-stone-100 hover:bg-stone-200 rounded-lg text-xs font-medium flex items-center justify-center gap-2 border border-stone-200">
+                <i class="fa-solid fa-door-open"></i> Add Exit Door
+              </button>
+              <button onclick="addArchitecturalOpening('window')" class="flex-1 py-2 px-3 bg-stone-100 hover:bg-stone-200 rounded-lg text-xs font-medium flex items-center justify-center gap-2 border border-stone-200">
+                <i class="fa-solid fa-border-all"></i> Add Window
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: FURNITURE CATALOG & LIVE SEARCH -->
+        <div id="content-catalog" class="hidden space-y-4">
+          <!-- Search Bar -->
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-stone-400 text-xs"></i>
+            <input type="text" id="catalogSearch" placeholder="Search furniture or POS..." class="w-full bg-stone-50 border border-stone-200 rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-charcoal">
+          </div>
+
+          <!-- Category Filter Chips -->
+          <div class="flex gap-1 overflow-x-auto pb-1 text-[11px] font-medium" id="categoryChips">
+            <button onclick="filterCatalog('all')" class="cat-chip active px-2.5 py-1 rounded-full bg-charcoal text-white shrink-0">All</button>
+            <button onclick="filterCatalog('seating')" class="cat-chip px-2.5 py-1 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 shrink-0">Seating</button>
+            <button onclick="filterCatalog('tables')" class="cat-chip px-2.5 py-1 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 shrink-0">Tables</button>
+            <button onclick="filterCatalog('retail')" class="cat-chip px-2.5 py-1 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 shrink-0">POS & Retail</button>
+            <button onclick="filterCatalog('office')" class="cat-chip px-2.5 py-1 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 shrink-0">Office</button>
+          </div>
+
+          <!-- Catalog Items Grid -->
+          <div class="grid grid-cols-2 gap-2" id="catalogList">
+            <!-- Dynamically populated via JavaScript -->
+          </div>
+        </div>
+
+        <!-- TAB 3: ATMOSPHERE & LIGHTING CONTROLS -->
+        <div id="content-env" class="hidden space-y-5">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-stone-400">Lighting Presets</h2>
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="setLightingPreset('day')" class="p-3 border border-stone-200 rounded-xl text-center hover:border-amber-500 bg-amber-50/20">
+              <i class="fa-solid fa-sun text-amber-500 text-lg mb-1 block"></i>
+              <span class="text-xs font-semibold block text-stone-800">Daylight</span>
+            </button>
+            <button onclick="setLightingPreset('golden')" class="p-3 border border-stone-200 rounded-xl text-center hover:border-orange-500 bg-orange-50/20">
+              <i class="fa-solid fa-cloud-sun text-orange-500 text-lg mb-1 block"></i>
+              <span class="text-xs font-semibold block text-stone-800">Golden Hour</span>
+            </button>
+            <button onclick="setLightingPreset('night')" class="p-3 border border-stone-200 rounded-xl text-center hover:border-indigo-500 bg-indigo-50/20">
+              <i class="fa-solid fa-moon text-indigo-500 text-lg mb-1 block"></i>
+              <span class="text-xs font-semibold block text-stone-800">Night Mood</span>
+            </button>
+          </div>
+
+          <div>
+            <label class="text-xs text-stone-600 block mb-1">Sun Intensity</label>
+            <input type="range" id="sunIntensity" min="0" max="2" step="0.1" value="1" class="w-full accent-charcoal">
+          </div>
+
+          <div>
+            <label class="text-xs text-stone-600 block mb-1">Ambient Warmth</label>
+            <input type="range" id="ambientWarmth" min="0" max="1" step="0.05" value="0.3" class="w-full accent-charcoal">
+          </div>
+
+          <div class="p-3 rounded-xl bg-stone-50 border border-stone-200">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold text-stone-800">Floor Lighting Heatmap</span>
+              <input type="checkbox" id="heatmapToggle" onchange="toggleHeatmap()" class="accent-charcoal">
+            </div>
+            <p class="text-[11px] text-stone-500">Visualizes artificial and natural light density across table and seating surfaces.</p>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- Center Canvas Area -->
+    <div class="flex-1 relative bg-stone-900 flex overflow-hidden">
+      
+      <!-- Primary 3D / 2D Canvas Container -->
+      <div id="canvasContainer" class="w-full h-full relative cursor-grab active:cursor-grabbing">
+        <canvas id="threeCanvas" class="w-full h-full block"></canvas>
+
+        <!-- Floating Camera & Viewport Controls -->
+        <div class="absolute bottom-6 left-6 flex items-center space-x-2 bg-white/90 backdrop-blur p-1.5 rounded-2xl shadow-xl border border-stone-200 z-10">
+          <button onclick="resetCamera()" class="p-2 hover:bg-stone-100 rounded-xl text-stone-700 text-xs font-medium flex items-center gap-1.5" title="Reset View">
+            <i class="fa-solid fa-arrows-to-dot"></i> Reset
+          </button>
+          <div class="w-px h-4 bg-stone-300"></div>
+          <button onclick="toggleOrthographic()" id="orthoToggleBtn" class="p-2 hover:bg-stone-100 rounded-xl text-stone-700 text-xs font-medium flex items-center gap-1.5" title="Toggle Perspective / Top Ortho">
+            <i class="fa-solid fa-layer-group"></i> 2D Grid
+          </button>
+          <div class="w-px h-4 bg-stone-300"></div>
+          <button onclick="zoomCamera(0.8)" class="p-2 hover:bg-stone-100 rounded-xl text-stone-700" title="Zoom In">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+          <button onclick="zoomCamera(1.2)" class="p-2 hover:bg-stone-100 rounded-xl text-stone-700" title="Zoom Out">
+            <i class="fa-solid fa-minus"></i>
+          </button>
+        </div>
+
+        <!-- Live Fire & Egress Legend Overlay -->
+        <div id="egressLegend" class="hidden absolute top-6 left-6 bg-white/95 backdrop-blur p-4 rounded-2xl shadow-xl border border-red-200 text-xs z-10 max-w-xs space-y-2">
+          <div class="font-bold text-red-700 flex items-center gap-2">
+            <i class="fa-solid fa-shield-halved"></i> Egress & Fire Safety Compliance
+          </div>
+          <div class="flex items-center gap-2 text-stone-600">
+            <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+            <span>Exit Route Clearance (> 1.2m)</span>
+          </div>
+          <div class="flex items-center gap-2 text-stone-600">
+            <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+            <span>Aisle Pinch Point Warning</span>
+          </div>
+          <div class="flex items-center gap-2 text-stone-600">
+            <span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
+            <span>Door Swing Egress Corridor</span>
+          </div>
+          <div class="pt-2 border-t border-stone-200 text-[11px] font-mono text-stone-500" id="egressMetricsText">
+            Max Occupancy: <span class="font-bold text-stone-800" id="maxOccupancyVal">0</span> persons
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Sidebar: Item Customization & Procurement Analytics -->
+    <aside id="rightSidebar" class="w-80 bg-white border-l border-stone-200 flex flex-col z-20 shadow-lg">
+      
+      <!-- Top Selected Item Inspector -->
+      <div class="p-4 border-b border-stone-200 bg-stone-50">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">Item Customizer</h2>
+        
+        <div id="itemInspectorEmpty" class="text-center py-6 text-stone-400 text-xs">
+          <i class="fa-solid fa-hand-pointer text-2xl mb-2 block text-stone-300"></i>
+          Select an item in the canvas to customize dimensions, color, and rotation.
+        </div>
+
+        <div id="itemInspectorActive" class="hidden space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <div id="inspectorTitle" class="font-bold text-sm text-charcoal">Modern Dining Chair</div>
+              <div id="inspectorCategory" class="text-[10px] text-stone-500 uppercase font-mono">Seating</div>
+            </div>
+            <button onclick="deleteSelectedItem()" class="p-2 text-red-500 hover:bg-red-50 rounded-lg text-xs" title="Delete Item">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+
+          <!-- Color Accent Switcher -->
+          <div>
+            <label class="text-[11px] font-semibold text-stone-600 block mb-1">Color Finish Override</label>
+            <div class="flex gap-2">
+              <button onclick="setSelectedItemColor('#1A1918')" class="w-6 h-6 rounded-full bg-stone-900 ring-2 ring-stone-300"></button>
+              <button onclick="setSelectedItemColor('#C29B63')" class="w-6 h-6 rounded-full bg-amber-600"></button>
+              <button onclick="setSelectedItemColor('#4A6B5D')" class="w-6 h-6 rounded-full bg-emerald-800"></button>
+              <button onclick="setSelectedItemColor('#8C3A32')" class="w-6 h-6 rounded-full bg-rose-900"></button>
+              <button onclick="setSelectedItemColor('#D8D3C8')" class="w-6 h-6 rounded-full bg-stone-200 border border-stone-300"></button>
+              <input type="color" id="customColorPicker" onchange="setSelectedItemColor(this.value)" class="w-6 h-6 rounded-full overflow-hidden border-0 cursor-pointer p-0">
+            </div>
+          </div>
+
+          <!-- Scale & Rotation Sliders -->
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-[11px] text-stone-600 block mb-1">Width (m)</label>
+              <input type="number" id="itemWidth" step="0.1" class="w-full bg-white border border-stone-300 rounded px-2 py-1 text-xs font-mono">
+            </div>
+            <div>
+              <label class="text-[11px] text-stone-600 block mb-1">Depth (m)</label>
+              <input type="number" id="itemDepth" step="0.1" class="w-full bg-white border border-stone-300 rounded px-2 py-1 text-xs font-mono">
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-[11px] text-stone-600 mb-1">
+              <span>Rotation Angle</span>
+              <span id="rotationVal" class="font-mono">0°</span>
+            </div>
+            <input type="range" id="itemRotation" min="0" max="360" value="0" class="w-full accent-charcoal">
+          </div>
+        </div>
+      </div>
+
+      <!-- Capacity & Analytics Panel -->
+      <div class="p-4 border-b border-stone-200 bg-white">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-stone-400 mb-3">Capacity & Metrics</h2>
+        
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div class="p-3 bg-stone-50 border border-stone-200 rounded-xl">
+            <div class="text-[10px] text-stone-500 font-mono uppercase">Total Area</div>
+            <div class="text-lg font-bold font-mono text-charcoal" id="metricArea">120 m²</div>
+          </div>
+          <div class="p-3 bg-stone-50 border border-stone-200 rounded-xl">
+            <div class="text-[10px] text-stone-500 font-mono uppercase">Seat Count</div>
+            <div class="text-lg font-bold font-mono text-charcoal" id="metricSeats">0 Seats</div>
+          </div>
+        </div>
+
+        <div class="p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs">
+          <span class="text-emerald-800 font-medium">Seating Density</span>
+          <span class="font-mono font-bold text-emerald-900" id="metricDensity">0.0 seats/m²</span>
+        </div>
+      </div>
+
+      <!-- Procurement & Budget Manager -->
+      <div class="flex-1 overflow-y-auto p-4 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-stone-400">Budget Target Bar</h2>
+            <span class="text-xs font-mono font-bold text-stone-700" id="budgetText">$0 / $25,000</span>
+          </div>
+
+          <!-- Budget Visual Progress Bar -->
+          <div class="w-full h-2.5 bg-stone-200 rounded-full overflow-hidden mb-4">
+            <div id="budgetProgressBar" class="h-full bg-charcoal w-0 transition-all duration-300"></div>
+          </div>
+
+          <!-- Itemized Line Items List -->
+          <h2 class="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">Itemized Furniture List</h2>
+          <div id="procurementList" class="space-y-2 text-xs max-h-48 overflow-y-auto pr-1">
+            <!-- Dynamically Rendered -->
+          </div>
+        </div>
+
+        <!-- Cost Summary Totals -->
+        <div class="pt-4 border-t border-stone-200 space-y-2 text-xs">
+          <div class="flex justify-between text-stone-500">
+            <span>Subtotal</span>
+            <span class="font-mono" id="subtotalVal">$0.00</span>
+          </div>
+          <div class="flex justify-between text-stone-500">
+            <span>Est. Freight & Assembly (8%)</span>
+            <span class="font-mono" id="freightVal">$0.00</span>
+          </div>
+          <div class="flex justify-between text-stone-500">
+            <span>Tax (7%)</span>
+            <span class="font-mono" id="taxVal">$0.00</span>
+          </div>
+          <div class="flex justify-between font-bold text-sm text-charcoal pt-2 border-t border-stone-200">
+            <span>Total Estimated Cost</span>
+            <span class="font-mono text-emerald-700" id="totalCostVal">$0.00</span>
+          </div>
+        </div>
+
+      </div>
+
+    </aside>
+
+  </main>
+
+  <script>
+    /* ==========================================================================
+       3D Space Planner - Main Logic & Three.js Engine Implementation
+       ========================================================================== */
+
+    // Application State Management
+    const state = {
+      room: {
+        width: 12,
+        length: 10,
+        height: 3.5,
+        walls: { north: true, south: true, east: true, west: true },
+        material: 'oak'
+      },
+      viewMode: '3d', // '2d', '3d', 'split'
+      lightingPreset: 'day',
+      fireSafetyMode: false,
+      heatmapMode: false,
+      budgetLimit: 25000,
+      placedItems: [], // Array of placed furniture objects
+      selectedItemId: null
+    };
+
+    // Furniture Master Catalog
+    const catalogData = [
+      { id: 'chair_wood', name: 'Scandinavian Dining Chair', category: 'seating', price: 180, width: 0.5, depth: 0.5, height: 0.85, color: '#C29B63', seats: 1 },
+      { id: 'chair_lounge', name: 'Velvet Armchair', category: 'seating', price: 420, width: 0.8, depth: 0.8, height: 0.75, color: '#4A6B5D', seats: 1 },
+      { id: 'table_round', name: 'Round Cafe Bistro Table', category: 'tables', price: 350, width: 0.9, depth: 0.9, height: 0.75, color: '#1A1918', seats: 0 },
+      { id: 'table_rect', name: 'Communal Oak Dining Table', category: 'tables', price: 1100, width: 2.2, depth: 0.9, height: 0.75, color: '#C29B63', seats: 0 },
+      { id: 'pos_counter', name: 'Modular POS Counter', category: 'retail', price: 2400, width: 2.5, depth: 0.8, height: 1.1, color: '#1A1918', seats: 0 },
+      { id: 'shelf_display', name: 'Industrial Retail Shelf', category: 'retail', price: 850, width: 1.5, depth: 0.4, height: 2.0, color: '#8C3A32', seats: 0 },
+      { id: 'office_desk', name: 'Executive Workstation', category: 'office', price: 950, width: 1.6, depth: 0.8, height: 0.75, color: '#1A1918', seats: 0 },
+      { id: 'plant_potted', name: 'Fiddle Leaf Fig Planter', category: 'seating', price: 140, width: 0.4, depth: 0.4, height: 1.4, color: '#4A6B5D', seats: 0 }
+    ];
+
+    // Three.js Global References
+    let scene, camera, renderer, controls;
+    let roomGroup, furnitureGroup, egressGroup, heatmapMesh;
+    let raycaster, mouse;
+    let isDraggingItem = false;
+
+    window.addEventListener('load', () => {
+      initThreeScene();
+      renderCatalogList();
+      bindUIEventListeners();
+      updateRoomGeometry();
+      animate();
+    });
+
+    function initThreeScene() {
+      const container = document.getElementById('canvasContainer');
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xFAFAF7);
+
+      // Camera Setup
+      camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+      camera.position.set(12, 14, 16);
+
+      // Renderer Setup
+      renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('threeCanvas'), antialias: true });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+      // Orbit Controls
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxPolarAngle = Math.PI / 2 - 0.01;
+
+      // Groups
+      roomGroup = new THREE.Group();
+      furnitureGroup = new THREE.Group();
+      egressGroup = new THREE.Group();
+      scene.add(roomGroup);
+      scene.add(furnitureGroup);
+      scene.add(egressGroup);
+
+      // Lighting Setup
+      setupLighting();
+
+      // Raycaster for Picking & Dragging
+      raycaster = new THREE.Raycaster();
+      mouse = new THREE.Vector2();
+
+      // Window Resize Listener
+      window.addEventListener('resize', onWindowResize);
+      renderer.domElement.addEventListener('pointerdown', onPointerDown);
+      renderer.domElement.addEventListener('pointermove', onPointerMove);
+    }
+
+    let dirLight, ambLight;
+    function setupLighting() {
+      ambLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambLight);
+
+      dirLight = new THREE.DirectionalLight(0xfffaed, 1.2);
+      dirLight.position.set(15, 20, 10);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 2048;
+      dirLight.shadow.mapSize.height = 2048;
+      dirLight.shadow.camera.near = 0.5;
+      dirLight.shadow.camera.far = 50;
+      const d = 15;
+      dirLight.shadow.camera.left = -d;
+      dirLight.shadow.camera.right = d;
+      dirLight.shadow.camera.top = d;
+      dirLight.shadow.camera.bottom = -d;
+      scene.add(dirLight);
+    }
+
+    function setLightingPreset(preset) {
+      state.lightingPreset = preset;
+      if (preset === 'day') {
+        scene.background.setHex(0xFAFAF7);
+        dirLight.color.setHex(0xfffaed);
+        dirLight.intensity = 1.2;
+        ambLight.intensity = 0.6;
+      } else if (preset === 'golden') {
+        scene.background.setHex(0xfdf3e7);
+        dirLight.color.setHex(0xffaa55);
+        dirLight.intensity = 1.5;
+        ambLight.intensity = 0.4;
+      } else if (preset === 'night') {
+        scene.background.setHex(0x0f111a);
+        dirLight.color.setHex(0x6677cc);
+        dirLight.intensity = 0.3;
+        ambLight.intensity = 0.2;
+      }
+    }
+
+    function updateRoomGeometry() {
+      // Clear existing room meshes
+      while (roomGroup.children.length > 0) {
+        roomGroup.remove(roomGroup.children[0]);
+      }
+
+      const w = state.room.width;
+      const l = state.room.length;
+      const h = state.room.height;
+
+      // Floor Mesh Construction
+      const floorGeo = new THREE.PlaneGeometry(w, l);
+      let floorMat;
+
+      if (state.room.material === 'oak') {
+        floorMat = new THREE.MeshStandardMaterial({ color: 0xc29b63, roughness: 0.4 });
+      } else if (state.room.material === 'concrete') {
+        floorMat = new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.2 });
+      } else if (state.room.material === 'terrazzo') {
+        floorMat = new THREE.MeshStandardMaterial({ color: 0xe5dfd5, roughness: 0.5 });
+      } else {
+        floorMat = new THREE.MeshStandardMaterial({ color: 0x1f3a60, roughness: 0.8 });
+      }
+
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      floor.name = 'floor';
+      roomGroup.add(floor);
+
+      // Blueprint Floor Grid Overlay
+      const grid = new THREE.GridHelper(Math.max(w, l), Math.max(w, l), 0x1A1918, 0xd4cece);
+      grid.position.y = 0.01;
+      roomGroup.add(grid);
+
+      // Walls Construction
+      const wallMat = new THREE.MeshStandardMaterial({ color: 0xf0ece1, roughness: 0.9, side: THREE.DoubleSide });
+      
+      // North Wall (-Z)
+      if (state.room.walls.north) {
+        const wallGeo = new THREE.PlaneGeometry(w, h);
+        const wall = new THREE.Mesh(wallGeo, wallMat);
+        wall.position.set(0, h / 2, -l / 2);
+        wall.receiveShadow = true;
+        roomGroup.add(wall);
+      }
+      // South Wall (+Z)
+      if (state.room.walls.south) {
+        const wallGeo = new THREE.PlaneGeometry(w, h);
+        const wall = new THREE.Mesh(wallGeo, wallMat);
+        wall.position.set(0, h / 2, l / 2);
+        wall.rotation.y = Math.PI;
+        wall.receiveShadow = true;
+        roomGroup.add(wall);
+      }
+      // East Wall (+X)
+      if (state.room.walls.east) {
+        const wallGeo = new THREE.PlaneGeometry(l, h);
+        const wall = new THREE.Mesh(wallGeo, wallMat);
+        wall.position.set(w / 2, h / 2, 0);
+        wall.rotation.y = -Math.PI / 2;
+        wall.receiveShadow = true;
+        roomGroup.add(wall);
+      }
+      // West Wall (-X)
+      if (state.room.walls.west) {
+        const wallGeo = new THREE.PlaneGeometry(l, h);
+        const wall = new THREE.Mesh(wallGeo, wallMat);
+        wall.position.set(-w / 2, h / 2, 0);
+        wall.rotation.y = Math.PI / 2;
+        wall.receiveShadow = true;
+        roomGroup.add(wall);
+      }
+
+      updateAnalyticsAndCost();
+    }
+
+    function setFloorMaterial(mat) {
+      state.room.material = mat;
+      updateRoomGeometry();
+    }
+
+    function addItemToScene(catalogId) {
+      const itemDef = catalogData.find(i => i.id === catalogId);
+      if (!itemDef) return;
+
+      const instanceId = 'item_' + Date.now();
+      const newItem = {
+        instanceId,
+        catalogId: itemDef.id,
+        name: itemDef.name,
+        category: itemDef.category,
+        price: itemDef.price,
+        width: itemDef.width,
+        depth: itemDef.depth,
+        height: itemDef.height,
+        color: itemDef.color,
+        seats: itemDef.seats,
+        x: (Math.random() - 0.5) * (state.room.width - 2),
+        z: (Math.random() - 0.5) * (state.room.length - 2),
+        rotation: 0
+      };
+
+      state.placedItems.push(newItem);
+      renderFurnitureMesh(newItem);
+      selectItem(instanceId);
+      updateAnalyticsAndCost();
+    }
+
+    function renderFurnitureMesh(item) {
+      const group = new THREE.Group();
+      group.name = item.instanceId;
+
+      // Main Bounding Box Geometry
+      const geo = new THREE.BoxGeometry(item.width, item.height, item.depth);
+      const mat = new THREE.MeshStandardMaterial({ 
+        color: new THREE.Color(item.color), 
+        roughness: 0.5,
+        metalness: 0.1
+      });
+
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.y = item.height / 2;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+
+      // Subtle Outline / Selection Highlight
+      const edges = new THREE.EdgesGeometry(geo);
+      const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x1A1918 }));
+      line.position.y = item.height / 2;
+      group.add(line);
+
+      group.position.set(item.x, 0, item.z);
+      group.rotation.y = item.rotation;
+
+      furnitureGroup.add(group);
+    }
+
+    function selectItem(instanceId) {
+      state.selectedItemId = instanceId;
+      const item = state.placedItems.find(i => i.instanceId === instanceId);
+
+      const activeBox = document.getElementById('itemInspectorActive');
+      const emptyBox = document.getElementById('itemInspectorEmpty');
+
+      if (item) {
+        activeBox.classList.remove('hidden');
+        emptyBox.classList.add('hidden');
+
+        document.getElementById('inspectorTitle').innerText = item.name;
+        document.getElementById('inspectorCategory').innerText = item.category;
+        document.getElementById('itemWidth').value = item.width;
+        document.getElementById('itemDepth').value = item.depth;
+        document.getElementById('itemRotation').value = Math.round((item.rotation * 180) / Math.PI);
+        document.getElementById('rotationVal').innerText = `${Math.round((item.rotation * 180) / Math.PI)}°`;
+      } else {
+        activeBox.classList.add('hidden');
+        emptyBox.classList.remove('hidden');
+      }
+    }
+
+    function setSelectedItemColor(colorHex) {
+      if (!state.selectedItemId) return;
+      const item = state.placedItems.find(i => i.instanceId === state.selectedItemId);
+      if (item) {
+        item.color = colorHex;
+        const meshGroup = furnitureGroup.getObjectByName(item.instanceId);
+        if (meshGroup && meshGroup.children[0]) {
+          meshGroup.children[0].material.color.set(colorHex);
+        }
+        updateAnalyticsAndCost();
+      }
+    }
+
+    function deleteSelectedItem() {
+      if (!state.selectedItemId) return;
+      const idx = state.placedItems.findIndex(i => i.instanceId === state.selectedItemId);
+      if (idx !== -1) {
+        const meshGroup = furnitureGroup.getObjectByName(state.selectedItemId);
+        if (meshGroup) furnitureGroup.remove(meshGroup);
+        state.placedItems.splice(idx, 1);
+        selectItem(null);
+        updateAnalyticsAndCost();
+      }
+    }
+
+    function onPointerDown(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(furnitureGroup.children, true);
+
+      if (intersects.length > 0) {
+        let topObj = intersects[0].object;
+        while (topObj.parent && topObj.parent !== furnitureGroup) {
+          topObj = topObj.parent;
+        }
+        selectItem(topObj.name);
+        isDraggingItem = true;
+        controls.enabled = false;
+      } else {
+        selectItem(null);
+      }
+    }
+
+    function onPointerMove(event) {
+      if (!isDraggingItem || !state.selectedItemId) return;
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const floorHits = raycaster.intersectObjects(roomGroup.children);
+
+      const floorHit = floorHits.find(h => h.object.name === 'floor');
+      if (floorHit) {
+        const item = state.placedItems.find(i => i.instanceId === state.selectedItemId);
+        if (item) {
+          // Keep within bounds
+          const halfW = state.room.width / 2 - item.width / 2;
+          const halfL = state.room.length / 2 - item.depth / 2;
+          item.x = Math.max(-halfW, Math.min(halfW, floorHit.point.x));
+          item.z = Math.max(-halfL, Math.min(halfL, floorHit.point.z));
+
+          const meshGroup = furnitureGroup.getObjectByName(item.instanceId);
+          if (meshGroup) {
+            meshGroup.position.x = item.x;
+            meshGroup.position.z = item.z;
+          }
+        }
+      }
+    }
+
+    window.addEventListener('pointerup', () => {
+      isDraggingItem = false;
+      controls.enabled = true;
+    });
+
+    function updateAnalyticsAndCost() {
+      const area = state.room.width * state.room.length;
+      document.getElementById('metricArea').innerText = `${area.toFixed(1)} m²`;
+
+      // Seat & Density Calculation
+      const totalSeats = state.placedItems.reduce((sum, item) => sum + (item.seats || 0), 0);
+      document.getElementById('metricSeats').innerText = `${totalSeats} Seats`;
+
+      const density = totalSeats > 0 ? (totalSeats / area).toFixed(2) : '0.00';
+      document.getElementById('metricDensity').innerText = `${density} seats/m²`;
+
+      // Cost Calculation
+      const subtotal = state.placedItems.reduce((sum, item) => sum + item.price, 0);
+      const freight = subtotal * 0.08;
+      const tax = subtotal * 0.07;
+      const totalCost = subtotal + freight + tax;
+
+      document.getElementById('subtotalVal').innerText = `$${subtotal.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+      document.getElementById('freightVal').innerText = `$${freight.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+      document.getElementById('taxVal').innerText = `$${tax.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+      document.getElementById('totalCostVal').innerText = `$${totalCost.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+
+      // Budget Progress Bar Update
+      document.getElementById('budgetText').innerText = `$${Math.round(totalCost).toLocaleString()} / $${state.budgetLimit.toLocaleString()}`;
+      const budgetPct = Math.min(100, (totalCost / state.budgetLimit) * 100);
+      const bar = document.getElementById('budgetProgressBar');
+      bar.style.width = `${budgetPct}%`;
+      if (budgetPct > 100) {
+        bar.className = 'h-full bg-red-500 transition-all duration-300';
+      } else {
+        bar.className = 'h-full bg-charcoal transition-all duration-300';
+      }
+
+      // Render Itemized Line Items in Procurement Panel
+      const listContainer = document.getElementById('procurementList');
+      listContainer.innerHTML = '';
+
+      if (state.placedItems.length === 0) {
+        listContainer.innerHTML = `<div class="text-stone-400 text-center py-2 text-[11px]">No furniture placed yet.</div>`;
+      } else {
+        state.placedItems.forEach(item => {
+          const row = document.createElement('div');
+          row.className = 'flex justify-between items-center p-2 rounded bg-stone-50 border border-stone-200';
+          row.innerHTML = `
+            <div>
+              <div class="font-semibold text-stone-800">${item.name}</div>
+              <div class="text-[10px] text-stone-500 font-mono">${item.width}m x ${item.depth}m</div>
+            </div>
+            <div class="font-mono font-bold text-stone-700">$${item.price}</div>
+          `;
+          listContainer.appendChild(row);
+        });
+      }
+
+      // Max Occupancy Code (1 person per 1.5 m² commercial code baseline)
+      const maxOccupancy = Math.floor(area / 1.5);
+      document.getElementById('maxOccupancyVal').innerText = maxOccupancy;
+    }
+
+    // Fire Safety & Dynamic Egress Visualizer
+    function toggleFireSafetyMode() {
+      state.fireSafetyMode = !state.fireSafetyMode;
+      const btn = document.getElementById('fireSafetyBtn');
+      const legend = document.getElementById('egressLegend');
+
+      if (state.fireSafetyMode) {
+        btn.classList.add('bg-red-600', 'text-white');
+        legend.classList.remove('hidden');
+        renderEgressOverlay();
+      } else {
+        btn.classList.remove('bg-red-600', 'text-white');
+        legend.classList.add('hidden');
+        while (egressGroup.children.length > 0) {
+          egressGroup.remove(egressGroup.children[0]);
+        }
+      }
+    }
+
+    function renderEgressOverlay() {
+      while (egressGroup.children.length > 0) {
+        egressGroup.remove(egressGroup.children[0]);
+      }
+
+      // Draw Main Corridor Exit Lines
+      const lineMat = new THREE.LineDashedMaterial({ color: 0x10b981, dashSize: 0.3, gapSize: 0.1, linewidth: 3 });
+      const points = [];
+      points.push(new THREE.Vector3(0, 0.05, 0));
+      points.push(new THREE.Vector3(0, 0.05, state.room.length / 2));
+
+      const geo = new THREE.BufferGeometry().setFromPoints(points);
+      const line = new THREE.Line(geo, lineMat);
+      line.computeLineDistances();
+      egressGroup.add(line);
+
+      // Draw Clearance Circles around door/items
+      state.placedItems.forEach(item => {
+        const ringGeo = new THREE.RingGeometry(item.width, item.width + 0.1, 32);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(item.x, 0.02, item.z);
+        egressGroup.add(ring);
+      });
+    }
+
+    function toggleHeatmap() {
+      state.heatmapMode = !state.heatmapMode;
+      // Toggle Heatmap visual feedback
+    }
+
+    function renderCatalogList() {
+      const container = document.getElementById('catalogList');
+      container.innerHTML = '';
+
+      catalogData.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'p-2.5 border border-stone-200 rounded-xl bg-stone-50 hover:bg-white hover:border-charcoal hover:shadow-md transition-all cursor-pointer flex flex-col justify-between';
+        card.onclick = () => addItemToScene(item.id);
+
+        card.innerHTML = `
+          <div>
+            <div class="font-bold text-xs text-stone-800 leading-snug mb-1">${item.name}</div>
+            <div class="text-[10px] text-stone-500 font-mono">${item.width}m x ${item.depth}m</div>
+          </div>
+          <div class="mt-2 flex items-center justify-between">
+            <span class="font-mono text-xs font-bold text-stone-900">$${item.price}</span>
+            <span class="w-5 h-5 rounded-full bg-charcoal text-white text-[10px] flex items-center justify-center">+</span>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function bindUIEventListeners() {
+      document.getElementById('roomWidthInput').addEventListener('input', (e) => {
+        state.room.width = parseFloat(e.target.value) || 10;
+        updateRoomGeometry();
+      });
+
+      document.getElementById('roomLengthInput').addEventListener('input', (e) => {
+        state.room.length = parseFloat(e.target.value) || 10;
+        updateRoomGeometry();
+      });
+
+      document.getElementById('ceilingHeightInput').addEventListener('input', (e) => {
+        state.room.height = parseFloat(e.target.value);
+        document.getElementById('ceilingHeightVal').innerText = `${e.target.value}m`;
+        updateRoomGeometry();
+      });
+
+      // Wall Checks
+      ['north', 'south', 'east', 'west'].forEach(wall => {
+        const el = document.getElementById(`wall${wall.charAt(0).toUpperCase() + wall.slice(1)}`);
+        el.addEventListener('change', (e) => {
+          state.room.walls[wall] = e.target.checked;
+          updateRoomGeometry();
+        });
+      });
+
+      // Rotation & Item Sliders
+      document.getElementById('itemRotation').addEventListener('input', (e) => {
+        if (!state.selectedItemId) return;
+        const rad = (parseFloat(e.target.value) * Math.PI) / 180;
+        document.getElementById('rotationVal').innerText = `${e.target.value}°`;
+        
+        const item = state.placedItems.find(i => i.instanceId === state.selectedItemId);
+        if (item) {
+          item.rotation = rad;
+          const meshGroup = furnitureGroup.getObjectByName(item.instanceId);
+          if (meshGroup) meshGroup.rotation.y = rad;
+        }
+      });
+    }
+
+    function switchTab(tabKey) {
+      ['arch', 'catalog', 'env'].forEach(key => {
+        const content = document.getElementById(`content-${key}`);
+        const tabBtn = document.getElementById(`tab-${key}`);
+        if (key === tabKey) {
+          content.classList.remove('hidden');
+          tabBtn.className = 'flex-1 py-3 border-b-2 border-charcoal font-semibold text-charcoal bg-white flex items-center justify-center gap-2';
+        } else {
+          content.classList.add('hidden');
+          tabBtn.className = 'flex-1 py-3 border-b-2 border-transparent text-stone-500 hover:text-stone-800 flex items-center justify-center gap-2';
+        }
+      });
+    }
+
+    function setViewMode(mode) {
+      state.viewMode = mode;
+      if (mode === '2d') {
+        camera.position.set(0, 20, 0);
+        camera.lookAt(0, 0, 0);
+        controls.enableRotate = false;
+      } else if (mode === '3d') {
+        camera.position.set(12, 14, 16);
+        camera.lookAt(0, 0, 0);
+        controls.enableRotate = true;
+      }
+    }
+
+    function resetCamera() {
+      camera.position.set(12, 14, 16);
+      camera.lookAt(0, 0, 0);
+      controls.reset();
+    }
+
+    function zoomCamera(factor) {
+      camera.position.multiplyScalar(factor);
+    }
+
+    function onWindowResize() {
+      const container = document.getElementById('canvasContainer');
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    async function exportPdfSpec() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('p', 'mm', 'a4');
+
+      // Title & Branding Header
+      doc.setFillColor(26, 25, 24);
+      doc.rect(0, 0, 210, 30, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(18);
+      doc.text('3D SPACE PLANNER - SPECIFICATION SHEET', 14, 18);
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Generated: ${new Date().toLocaleDateString()} | Commercial Architectural Layout`, 14, 25);
+
+      // Room Summary Box
+      doc.setTextColor(26, 25, 24);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('1. ARCHITECTURAL & ROOM METRICS', 14, 42);
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Dimensions: ${state.room.width}m (W) x ${state.room.length}m (L) x ${state.room.height}m (H)`, 14, 50);
+      doc.text(`Total Floor Area: ${(state.room.width * state.room.length).toFixed(1)} m²`, 14, 56);
+      doc.text(`Estimated Capacity: ${document.getElementById('metricSeats').innerText}`, 14, 62);
+
+      // Furniture Schedule Table
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('2. FURNITURE & EQUIPMENT SCHEDULE', 14, 76);
+
+      let yPos = 86;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Item Name', 14, yPos);
+      doc.text('Category', 90, yPos);
+      doc.text('Dimensions', 130, yPos);
+      doc.text('Price', 180, yPos);
+
+      doc.line(14, yPos + 2, 196, yPos + 2);
+      yPos += 8;
+
+      doc.setFont('helvetica', 'normal');
+      state.placedItems.forEach(item => {
+        doc.text(item.name, 14, yPos);
+        doc.text(item.category, 90, yPos);
+        doc.text(`${item.width}x${item.depth}m`, 130, yPos);
+        doc.text(`$${item.price}`, 180, yPos);
+        yPos += 7;
+      });
+
+      // Total Cost Section
+      yPos += 5;
+      doc.line(14, yPos, 196, yPos);
+      yPos += 8;
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Total Estimated Project Cost: ${document.getElementById('totalCostVal').innerText}`, 110, yPos);
+
+      // Signoff Block
+      yPos += 25;
+      doc.rect(14, yPos, 85, 25);
+      doc.text('Architect / Designer Approval', 18, yPos + 6);
+      doc.rect(111, yPos, 85, 25);
+      doc.text('Client Acceptance Signature', 115, yPos + 6);
+
+      doc.save('3D_Space_Planner_Specification.pdf');
+    }
+  </script>
+</body>
+</html>
