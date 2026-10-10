@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benchmark // Elite Hardware Diagnostics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #070809;
+            --surface: #0e1113;
+            --surface-hover: #161a1e;
+            --border: #1f262d;
+            --border-focus: #384452;
+            --text-main: #f0f3f6;
+            --text-muted: #8b949e;
+            --accent: #ff5722; /* Safety Vermillion */
+            --success: #2ea043;
+            --font-sans: 'Inter', -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            font-size: 13.5px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-family: var(--font-mono);
+            font-weight: 700;
+            font-size: 1.15rem;
+            color: #fff;
+            letter-spacing: -0.03em;
+        }
+
+        .brand-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        .gpu-badge {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 0.3rem 0.7rem;
+        }
+
+        /* Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 1.5rem;
+        }
+
+        @media(max-width: 950px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            padding: 1.25rem;
+        }
+
+        /* Viewport */
+        .viewport {
+            position: relative;
+            width: 100%;
+            height: 380px;
+            background: #000;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        canvas { width: 100%; height: 100%; display: block; }
+
+        .overlay-hud {
+            position: absolute;
+            top: 0.75rem;
+            left: 0.75rem;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            background: rgba(7, 8, 9, 0.85);
+            border: 1px solid var(--border);
+            padding: 0.35rem 0.65rem;
+            backdrop-filter: blur(4px);
+        }
+
+        .overlay-hud span { color: var(--success); font-weight: 700; }
+
+        /* Metrics Row */
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        @media(max-width: 768px) {
+            .metrics-row { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .metric-item {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 0.85rem 1rem;
+        }
+
+        .metric-title {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-val {
+            font-family: var(--font-mono);
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #fff;
+            margin-top: 0.15rem;
+        }
+
+        .metric-val span { font-size: 0.75rem; color: var(--accent); font-weight: 400; }
+
+        /* Live Graph Card */
+        .graph-card {
+            margin-top: 1rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 1rem;
+        }
+
+        .graph-header {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #fps-canvas {
+            width: 100%;
+            height: 90px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            display: block;
+        }
+
+        /* Detailed Matrix */
+        .telemetry-matrix {
+            margin-top: 1rem;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+        }
+
+        .telemetry-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 0.85rem;
+        }
+
+        .telemetry-label {
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 0.65rem;
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.2rem;
+            letter-spacing: 0.05em;
+        }
+
+        .telemetry-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.25rem;
+        }
+
+        .telemetry-row span:last-child { color: #fff; font-weight: 500; }
+
+        /* Controls */
+        .field { margin-bottom: 1rem; }
+        
+        label {
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 0.35rem;
+        }
+
+        select {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 0.65rem;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        select:focus { border-color: var(--border-focus); }
+
+        .btn {
+            width: 100%;
+            background-color: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 0.75rem;
+            font-family: var(--font-mono);
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: opacity 0.15s, box-shadow 0.15s;
+        }
+
+        .btn:hover:not(:disabled) { opacity: 0.9; box-shadow: 0 0 15px rgba(255, 87, 34, 0.2); }
+        .btn:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; box-shadow: none; }
+
+        .console {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            padding: 0.85rem;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--success);
+            height: 85px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <div class="brand">
+                <div class="brand-dot"></div>
+                <span>Benchmark</span>
+            </div>
+            <div class="gpu-badge" id="gpu-info">Detecting Hardware...</div>
+        </header>
+
+        <div class="grid">
+            <!-- Left Column -->
+            <div>
+                <div class="viewport">
+                    <canvas id="gl-canvas"></canvas>
+                    <div class="overlay-hud">
+                        FPS: <span id="hud-fps">--</span> &nbsp;|&nbsp; FT: <span id="hud-ms">--</span>ms
+                    </div>
+                </div>
+
+                <!-- Primary Metrics Row -->
+                <div class="metrics-row">
+                    <div class="metric-item">
+                        <div class="metric-title">Score</div>
+                        <div class="metric-val" id="res-score">---</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-title">Average FPS</div>
+                        <div class="metric-val" id="res-fps">--- <span>fps</span></div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-title">1% Low</div>
+                        <div class="metric-val" id="res-low">--- <span>fps</span></div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-title">Frame Time</div>
+                        <div class="metric-val" id="res-ft">--- <span>ms</span></div>
+                    </div>
+                </div>
+
+                <!-- Live Graph Card -->
+                <div class="graph-card">
+                    <div class="graph-header">
+                        <span>Real-Time Stability Graph (FPS Curve)</span>
+                        <span id="graph-status" style="color: var(--text-muted);">IDLE</span>
+                    </div>
+                    <canvas id="fps-canvas"></canvas>
+                </div>
+
+                <!-- Advanced Telemetry Matrix -->
+                <div class="telemetry-matrix">
+                    <div class="telemetry-box">
+                        <div class="telemetry-label">Shader Engine</div>
+                        <div class="telemetry-row"><span>Compile Latency:</span> <span id="dt-compile">-- ms</span></div>
+                        <div class="telemetry-row"><span>Ray March Steps:</span> <span id="dt-steps">--</span></div>
+                    </div>
+
+                    <div class="telemetry-box">
+                        <div class="telemetry-label">Rasterization Stats</div>
+                        <div class="telemetry-row"><span>Pixel Fill Rate:</span> <span id="dt-fillrate">-- MPix/s</span></div>
+                        <div class="telemetry-row"><span>Frame Jitter:</span> <span id="dt-jitter">-- ms</span></div>
+                    </div>
+
+                    <div class="telemetry-box">
+                        <div class="telemetry-label">Context & Buffer</div>
+                        <div class="telemetry-row"><span>Viewport Resolution:</span> <span id="dt-res">--</span></div>
+                        <div class="telemetry-row"><span>API Pipeline:</span> <span>WebGL 2.0 Core</span></div>
+                    </div>
+
+                    <div class="telemetry-box">
+                        <div class="telemetry-label">Performance Bounds</div>
+                        <div class="telemetry-row"><span>Peak Frametime:</span> <span id="dt-maxtm">-- ms</span></div>
+                        <div class="telemetry-row"><span>Floor Frametime:</span> <span id="dt-mintm">-- ms</span></div>
+                    </div>
+                </div>
+
+                <div class="console" id="console">
+                    [SYS] WebGL2 context initialized. Ready to execute benchmark pipeline.
+                </div>
+            </div>
+
+            <!-- Right Column: Controls -->
+            <div>
+                <div class="card">
+                    <form onsubmit="runBenchmark(event)">
+                        <div class="field">
+                            <label for="complexity">Shader Complexity</label>
+                            <select id="complexity">
+                                <option value="80">Balanced (80 Ray Steps)</option>
+                                <option value="160" selected>Intense (160 Ray Steps)</option>
+                                <option value="260">Extreme Stress (260 Ray Steps)</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="duration">Test Duration</label>
+                            <select id="duration">
+                                <option value="10">10 Seconds (Quick)</option>
+                                <option value="20" selected>20 Seconds (Standard)</option>
+                                <option value="30">30 Seconds (Sustained)</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" id="run-btn" class="btn">Start Benchmark</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gl-canvas');
+        const fpsCanvas = document.getElementById('fps-canvas');
+        const fpsCtx = fpsCanvas.getContext('2d');
+
+        const compileStart = performance.now();
+        const gl = canvas.getContext('webgl2', { powerPreference: "high-performance" });
+        
+        let gpuRenderer = "WebGL2 Hardware Device";
+        if (gl) {
+            const ext = gl.getExtension('WEBGL_debug_renderer_info');
+            if (ext) gpuRenderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+        }
+        document.getElementById('gpu-info').innerText = gpuRenderer;
+
+        // Shaders
+        const vsSource = `#version 300 es
+            in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }
+        `;
+
+        const fsSource = `#version 300 es
+            precision highp float;
+            out vec4 fragColor;
+            uniform vec2 u_resolution;
+            uniform float u_time;
+            uniform int u_max_steps;
+
+            float map(vec3 p) {
+                vec3 q = fract(p) - 0.5;
+                return length(q) - 0.24 + sin(u_time * 0.5 + p.x) * 0.08;
+            }
+
+            void main() {
+                vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / u_resolution.y;
+                vec3 ro = vec3(0.0, 0.0, u_time * 0.6);
+                vec3 rd = normalize(vec3(uv, 1.1));
+                
+                float d = 0.0;
+                float acc = 0.0;
+                for (int i = 0; i < 300; i++) {
+                    if (i >= u_max_steps) break;
+                    vec3 p = ro + rd * d;
+                    float stepVal = map(p);
+                    if (stepVal < 0.001 || d > 12.0) break;
+                    d += stepVal;
+                    acc += 1.0;
+                }
+                float sh = acc / float(u_max_steps);
+                fragColor = vec4(sh * 1.8, sh * 0.5, sh * 0.18, 1.0);
+            }
+        `;
+
+        function compileShader(gl, type, source) {
+            const s = gl.createShader(type);
+            gl.shaderSource(s, source);
+            gl.compileShader(s);
+            return s;
+        }
+
+        const program = gl.createProgram();
+        gl.attachShader(program, compileShader(gl, gl.VERTEX_SHADER, vsSource));
+        gl.attachShader(program, compileShader(gl, gl.FRAGMENT_SHADER, fsSource));
+        gl.linkProgram(program);
+
+        const compileTime = (performance.now() - compileStart).toFixed(2);
+        document.getElementById('dt-compile').innerText = `${compileTime} ms`;
+
+        const posBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+
+        const posAttr = gl.getAttribLocation(program, "position");
+        const resUni = gl.getUniformLocation(program, "u_resolution");
+        const timeUni = gl.getUniformLocation(program, "u_time");
+        const stepsUni = gl.getUniformLocation(program, "u_max_steps");
+
+        let isRunning = false;
+        let startTime = 0;
+        let fpsList = [];
+        let dtList = [];
+        let maxSteps = 160;
+        let durationSec = 20;
+        let lastTime = performance.now();
+
+        function drawGraph() {
+            fpsCanvas.width = fpsCanvas.clientWidth;
+            fpsCanvas.height = fpsCanvas.clientHeight;
+            fpsCtx.clearRect(0, 0, fpsCanvas.width, fpsCanvas.height);
+
+            if (fpsList.length < 2) return;
+
+            fpsCtx.strokeStyle = '#2ea043';
+            fpsCtx.lineWidth = 1.5;
+            fpsCtx.beginPath();
+
+            const stepX = fpsCanvas.width / (fpsList.length - 1);
+            for (let i = 0; i < fpsList.length; i++) {
+                const x = i * stepX;
+                const y = fpsCanvas.height - Math.min(fpsList[i] / 120, 1) * fpsCanvas.height;
+                if (i === 0) fpsCtx.moveTo(x, y);
+                else fpsCtx.lineTo(x, y);
+            }
+            fpsCtx.stroke();
+        }
+
+        function loop(now) {
+            if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
+                gl.viewport(0, 0, canvas.width, canvas.height);
+            }
+
+            const dt = now - lastTime;
+            lastTime = now;
+            const currentFps = dt > 0 ? 1000 / dt : 60;
+
+            if (isRunning) {
+                fpsList.push(currentFps);
+                dtList.push(dt);
+                drawGraph();
+
+                document.getElementById('hud-fps').innerText = Math.round(currentFps);
+                document.getElementById('hud-ms').innerText = dt.toFixed(1);
+
+                const fillrate = (((canvas.width * canvas.height) * currentFps) / 1000000).toFixed(1);
+                document.getElementById('dt-fillrate').innerText = `${fillrate} MPix/s`;
+                document.getElementById('dt-res').innerText = `${canvas.width}x${canvas.height}`;
+                document.getElementById('dt-steps').innerText = maxSteps;
+
+                if ((now - startTime) / 1000 >= durationSec) {
+                    finishTest();
+                }
+            }
+
+            gl.useProgram(program);
+            gl.enableVertexAttribArray(posAttr);
+            gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+            gl.vertexAttribPointer(posAttr, 2, gl.FLOAT, false, 0, 0);
+
+            gl.uniform2f(resUni, canvas.width, canvas.height);
+            gl.uniform1f(timeUni, now * 0.001);
+            gl.uniform1i(stepsUni, maxSteps);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+            requestAnimationFrame(loop);
+        }
+        requestAnimationFrame(loop);
+
+        function runBenchmark(e) {
+            e.preventDefault();
+            if (isRunning) return;
+
+            maxSteps = parseInt(document.getElementById('complexity').value);
+            durationSec = parseInt(document.getElementById('duration').value);
+
+            const btn = document.getElementById('run-btn');
+            const consoleBox = document.getElementById('console');
+
+            btn.disabled = true;
+            btn.innerText = "RUNNING BENCHMARK...";
+            document.getElementById('graph-status').innerText = "RECORDING";
+            document.getElementById('graph-status').style.color = "var(--accent)";
+            
+            fpsList = [];
+            dtList = [];
+            startTime = performance.now();
+            isRunning = true;
+
+            consoleBox.innerText = `[RUN] Executing high-load volume shader pass. Complexity: ${maxSteps} steps...`;
+        }
+
+        function finishTest() {
+            isRunning = false;
+            const btn = document.getElementById('run-btn');
+            const consoleBox = document.getElementById('console');
+
+            btn.disabled = false;
+            btn.innerText = "Start Benchmark";
+            document.getElementById('graph-status').innerText = "COMPLETE";
+            document.getElementById('graph-status').style.color = "var(--success)";
+
+            const avgFps = fpsList.reduce((a, b) => a + b, 0) / fpsList.length;
+            const sorted = [...fpsList].sort((a, b) => a - b);
+            const low1Pct = sorted[Math.floor(sorted.length * 0.01)] || sorted[0];
+            const avgDt = dtList.reduce((a, b) => a + b, 0) / dtList.length;
+            
+            const score = Math.round(avgFps * (maxSteps / 80) * 55);
+
+            const maxDt = Math.max(...dtList).toFixed(1);
+            const minDt = Math.min(...dtList).toFixed(1);
+            const jitter = (maxDt - minDt).toFixed(1);
+
+            document.getElementById('res-score').innerText = score.toLocaleString();
+            document.getElementById('res-fps').innerHTML = `${Math.round(avgFps)} <span>fps</span>`;
+            document.getElementById('res-low').innerHTML = `${Math.round(low1Pct)} <span>fps</span>`;
+            document.getElementById('res-ft').innerHTML = `${avgDt.toFixed(1)} <span>ms</span>`;
+
+            document.getElementById('dt-jitter').innerText = `${jitter} ms`;
+            document.getElementById('dt-maxtm').innerText = `${maxDt} ms`;
+            document.getElementById('dt-mintm').innerText = `${minDt} ms`;
+
+            consoleBox.innerText = `[SUCCESS] Benchmark complete. Final Score: ${score.toLocaleString()} pts`;
+        }
+    </script>
+</body>
+</html>
