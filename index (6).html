@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A simple daily habit tracker. Small steps, steady progress.">
+<title>Small Steps — Habit Tracker</title>
+<style>
+  :root { color-scheme:light; --bg:#f5f2ec; --card:#fffdf8; --text:#292e25; --muted:#686d60; --line:#dddcd2; --accent:#485c38; --soft:#e9eddf; }
+  :root[data-theme="dark"] { color-scheme:dark; --bg:#1b201a; --card:#252c23; --text:#f1f1e8; --muted:#b0b9a8; --line:#434d3e; --accent:#bed59e; --soft:#35432c; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,sans-serif; }
+  main { max-width:760px; margin:auto; padding:32px 20px 60px; }
+  header,.row { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+  header { margin-bottom:54px; }
+  .brand { font-weight:750; letter-spacing:-.5px; }
+  .brand span { color:var(--accent); margin-right:8px; }
+  button,input { font:inherit; }
+  button { cursor:pointer; border:1px solid var(--line); border-radius:12px; padding:10px 15px; background:var(--card); color:var(--text); }
+  button:hover { background:var(--soft); }
+  :focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+  h1 { font-size:clamp(32px,6vw,46px); line-height:1.15; letter-spacing:-1.8px; margin:8px 0 12px; }
+  h2 { font-size:19px; margin:0; }
+  p { color:var(--muted); }
+  .eyebrow { text-transform:uppercase; letter-spacing:2px; font-size:12px; color:var(--accent); font-weight:700; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:20px; padding:24px; margin-top:24px; }
+  #count { font-size:30px; font-weight:750; letter-spacing:-1px; }
+  progress { width:100%; height:12px; accent-color:var(--accent); margin-top:15px; }
+  .muted { font-size:14px; color:var(--muted); }
+  ul { list-style:none; padding:0; margin:18px 0; }
+  li { display:flex; align-items:center; gap:12px; padding:15px 0; border-bottom:1px solid var(--line); }
+  li label { display:flex; align-items:center; gap:14px; flex:1; cursor:pointer; min-width:0; }
+  li span { overflow-wrap:anywhere; }
+  input[type="checkbox"] { width:22px; height:22px; margin:0; accent-color:var(--accent); flex-shrink:0; }
+  li:has(input:checked) span { text-decoration:line-through; color:var(--muted); }
+  .remove { font-size:13px; padding:8px 10px; }
+  form { display:flex; gap:10px; }
+  input[type="text"] { min-width:0; flex:1; width:100%; padding:12px; border:1px solid var(--line); border-radius:12px; background:var(--bg); color:var(--text); }
+  .primary { background:var(--accent); color:var(--card); border-color:var(--accent); font-weight:650; }
+  .primary:hover { opacity:.85; background:var(--accent); }
+  #status { min-height:21px; margin:12px 0 0; font-size:13px; }
+  footer { text-align:center; margin-top:28px; color:var(--muted); font-size:13px; }
+  .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+  @media(max-width:480px) { main { padding:24px 16px; } header { margin-bottom:36px; } .card { padding:20px; } form { flex-direction:column; } .row { flex-wrap:wrap; } }
+</style>
+<main>
+  <header><div class="brand"><span aria-hidden="true">✳</span>Small Steps</div><button id="theme" type="button">Dark mode</button></header>
+  <div class="eyebrow" id="date"></div>
+  <h1>A little better, every day.</h1>
+  <p>Make room for the habits that matter. One small step at a time.</p>
+  <section class="card" aria-labelledby="progress-title">
+    <div class="row"><div><h2 id="progress-title">Today's progress</h2><div class="muted" id="encouragement"></div></div><div id="count" aria-live="polite"></div></div>
+    <progress id="progress" max="1" value="0" aria-label="Habits completed today"></progress>
+  </section>
+  <section class="card" aria-labelledby="habits-title">
+    <div class="row"><h2 id="habits-title">Your daily habits</h2><span class="muted">Keep it achievable</span></div>
+    <ul id="habits"></ul>
+    <form id="add-form"><label class="sr-only" for="habit-name">New habit</label><input id="habit-name" type="text" maxlength="80" placeholder="e.g. Read for 15 minutes" required><button class="primary" type="submit">+ Add habit</button></form>
+    <p id="status" role="status"></p>
+  </section>
+  <footer>Made for your pace. Saved on this browser.</footer>
+</main>
+<script>
+  const KEY = 'small-steps-v1';
+  const $ = id => document.getElementById(id);
+  const dayKey = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  };
+  let today = dayKey();
+  let state = { theme:matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light', habits:[
+    {id:'read',name:'Read for 15 minutes'}, {id:'move',name:'Take a mindful walk'}, {id:'study',name:'Finish one focused study session'}
+  ], days:{} };
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw !== null) {
+      const s = JSON.parse(raw);
+      if (!s || !['dark','light'].includes(s.theme) || !Array.isArray(s.habits) || !s.days || typeof s.days !== 'object' || Array.isArray(s.days) ||
+          !s.habits.every(h => h && typeof h.id === 'string' && typeof h.name === 'string') ||
+          new Set(s.habits.map(h => h.id)).size !== s.habits.length ||
+          !Object.values(s.days).every(v => Array.isArray(v) && v.every(id => typeof id === 'string'))) throw Error('Invalid data');
+      state = s;
+    }
+  } catch { $('status').textContent = 'Saved data could not be loaded. Changes may replace it.'; }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); $('status').textContent = 'Saved on this browser.'; }
+    catch { $('status').textContent = 'Browser storage is unavailable or full. Changes last only in this tab.'; }
+  }
+  function render() {
+    today = dayKey();
+    document.documentElement.dataset.theme = state.theme;
+    $('theme').textContent = state.theme === 'dark' ? 'Light mode':'Dark mode';
+    $('theme').setAttribute('aria-label', `Switch to ${state.theme === 'dark' ? 'light':'dark'} mode`);
+    $('date').textContent = new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
+    const done = new Set(state.days[today] || []);
+    const completed = state.habits.filter(h => done.has(h.id)).length;
+    $('count').textContent = `${completed} / ${state.habits.length}`;
+    $('progress').max = Math.max(1,state.habits.length);
+    $('progress').value = completed;
+    $('encouragement').textContent = !state.habits.length ? 'Add a habit to get started.' : completed === state.habits.length ? 'All done. Enjoy your day.' : 'Small actions add up.';
+    $('habits').replaceChildren();
+    for (const habit of state.habits) {
+      const li = document.createElement('li');
+      const label = document.createElement('label');
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox'; checkbox.checked = done.has(habit.id);
+      checkbox.addEventListener('change', () => {
+        const date = dayKey(), ids = new Set(state.days[date] || []);
+        checkbox.checked ? ids.add(habit.id) : ids.delete(habit.id);
+        state.days[date] = [...ids]; save(); render();
+      });
+      const name = document.createElement('span'); name.textContent = habit.name;
+      label.append(checkbox,name);
+      const remove = document.createElement('button');
+      remove.type = 'button'; remove.className = 'remove'; remove.textContent = 'Remove';
+      remove.setAttribute('aria-label',`Remove ${habit.name}`);
+      remove.addEventListener('click', () => {
+        state.habits = state.habits.filter(h => h.id !== habit.id);
+        for (const date of Object.keys(state.days)) state.days[date] = state.days[date].filter(id => id !== habit.id);
+        save(); render(); $('habit-name').focus();
+      });
+      li.append(label,remove); $('habits').append(li);
+    }
+  }
+  $('add-form').addEventListener('submit', e => {
+    e.preventDefault(); const name = $('habit-name').value.trim();
+    if (!name) { $('status').textContent = 'Enter a habit name.'; $('habit-name').focus(); return; }
+    state.habits.push({id:`h-${Date.now()}-${Math.random().toString(36).slice(2)}`,name});
+    $('add-form').reset(); save(); render(); $('habit-name').focus();
+  });
+  $('theme').addEventListener('click', () => { state.theme = state.theme === 'dark' ? 'light':'dark'; save(); render(); });
+  setInterval(() => { if (today !== dayKey()) render(); }, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && today !== dayKey()) render(); });
+  render();
+</script>
+</html>
