@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Breakout — Brick Breaker</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100svh; display: grid; place-items: center;
+      padding: 20px; background: #0b1020; color: #edf2ff;
+      font-family: system-ui, sans-serif; }
+    main { width: min(100%, 800px); }
+    header { display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+    h1 { margin: 0; font-size: clamp(24px, 5vw, 36px); }
+    .stats { display: flex; flex-wrap: wrap; gap: 16px; font-weight: 600; }
+    canvas { display: block; width: 100%; aspect-ratio: 4 / 3;
+      background: #101a30; border: 1px solid #2b3a57;
+      border-radius: 16px; touch-action: none; }
+    .controls { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+    button { padding: 12px 20px; border: 0; border-radius: 9px;
+      background: #80edcc; color: #102b29; font: inherit;
+      font-weight: 700; cursor: pointer; }
+    input { width: 145px; padding: 10px; border-radius: 9px; background: #263550; color: #edf2ff; font: inherit; border: 1px solid #455776; }
+    button.secondary { background: #263550; color: #edf2ff; }
+    button:hover { filter: brightness(1.1); }
+    button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+    p { color: #a8b6d0; font-size: 14px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>BREAKOUT<span style="color:#80edcc">.</span></h1>
+      <div class="stats" aria-live="polite">
+        <span>Level: <b id="level">1 / 1,000,000</b></span>
+        <span>Score: <b id="score">0</b></span>
+        <span>Lives: <b id="lives">3</b></span>
+      </div>
+    </header>
+    <canvas id="game" width="800" height="600"
+      aria-label="Breakout game. Use arrow keys or A and D to move; Space to launch; P to pause.">
+      Your browser needs canvas support to play this game.
+    </canvas>
+    <div class="controls">
+      <label for="levelSelect" style="align-self:center">Start level</label>
+      <input id="levelSelect" type="number" min="1" max="1000000" step="1" value="1">
+      <button id="jump" class="secondary">Start at level</button>
+      <button id="launch">Launch ball</button>
+      <button id="pause" class="secondary">Pause</button>
+      <button id="restart" class="secondary">Restart</button>
+    </div>
+    <p id="saveStatus" role="status">Checking local save…</p>
+    <p>Move: ← → / A D, mouse, or drag on the board. Launch: Space or tap.
+      Pause: P. Restart: R. Play through 1,000,000 levels to win! Armored bricks show hits remaining.
+      Earn an extra life every 5 levels (up to 5). Clicking Start at level starts a new run at that number.
+      Progress saves automatically in this browser. Reloaded games resume paused.</p>
+  </main>
+  <script>
+    "use strict";
+
+    // ============================================================
+    // 1. INITIALIZATION — all positions use a fixed 800 × 600 grid.
+    // CSS scales the board, while pointer coordinates are converted
+    // back to this grid so controls also work on smaller screens.
+    // ============================================================
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const scoreLabel = document.getElementById("score");
+    const levelLabel = document.getElementById("level");
+    const levelSelect = document.getElementById("levelSelect");
+    const livesLabel = document.getElementById("lives");
+    const launchButton = document.getElementById("launch");
+    const pauseButton = document.getElementById("pause");
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
+    const BALL_SPEED = 360; // Pixels per second, independent of frame rate.
+    const STEP = 1 / 120;   // Small physics steps help prevent missed collisions.
+    const TOTAL_LEVELS = 1000000;
+    const PATTERN_NAMES = ["Classic", "Checkerboard", "Diamond", "Twin Towers",
+      "Zigzag", "Pyramid", "Frame", "Stripes", "Wings", "Fortress"];
+    // The first 100 stages are curated. Later stages use seeded variations.
+    // Generate only the current stage, keeping memory usage small.
+    const PATTERNS = [
+      (r, c, rows) => true,
+      (r, c, rows) => (r + c) % 2 === 0,
+      (r, c, rows) => Math.abs(c - 4.5) + Math.abs(r - (rows - 1) / 2) <= rows / 2 + 1,
+      (r, c, rows) => c <= 2 || c >= 7 || r === rows - 1,
+      (r, c, rows) => (c + r * 2) % 5 < 3,
+      (r, c, rows) => Math.abs(c - 4.5) <= r + 0.5,
+      (r, c, rows) => r === 0 || r === rows - 1 || c === 0 || c === 9,
+      (r, c, rows) => r % 2 === 0 || c % 3 === 0,
+      (r, c, rows) => Math.abs(c - 4.5) >= Math.abs(r - (rows - 1) / 2),
+      (r, c, rows) => r > 1 || c % 2 === 0
+    ];
+    const COLS = 10;
+    const BRICK_WIDTH = 64;
+    const BRICK_HEIGHT = 22;
+    const BRICK_GAP = 8;
+    const COLORS = ["#ff7895", "#ffa56d", "#ffd66e", "#80edcc", "#7bb8ff"];
+    const keys = { left: false, right: false };
+    const paddle = { x: 344, y: 552, width: 112, height: 14, speed: 560 };
+    const ball = { x: 400, y: 542, radius: 8, dx: 0, dy: 0 };
+    let bricks = [];
+    let score = 0;
+    let lives = 3;
+    let remaining = 0;
+    let level = 1;
+    let runStartLevel = 1;
+    let ballSpeed = BALL_SPEED;
+    const SAVE_KEY = "breakout-campaign-save-v1";
+    const saveStatus = document.getElementById("saveStatus");
+    let initialized = false; // Prevent startup from overwriting a previous save.
+    let saveTimer = 0;
+    let state = "ready"; // ready, playing, paused, won, or lost.
+
+    function clamp(value, minimum, maximum) {
+      return Math.max(minimum, Math.min(maximum, value));
+    }
+
+    function updateHUD() {
+      scoreLabel.textContent = score;
+      livesLabel.textContent = lives;
+      levelLabel.textContent = level.toLocaleString() + " / " + TOTAL_LEVELS.toLocaleString();
+      pauseButton.textContent = state === "paused" ? "Resume" : "Pause";
+      launchButton.disabled = state !== "ready";
+      saveGame();
+    }
+
+    function resetBall() {
+      ball.x = paddle.x + paddle.width / 2;
+      ball.y = paddle.y - ball.radius - 1;
+      ball.dx = 0;
+      ball.dy = 0;
+      state = "ready";
+      updateHUD();
+    }
+
+    // A repeatable random sequence: the same level always rebuilds the
+    // same layout and armor, including after restoring a local save.
+    function levelRandom(seed) {
+      let value = seed >>> 0;
+      return function () {
+        value = (Math.imul(value, 1664525) + 1013904223) >>> 0;
+        return value / 4294967296;
+      };
+    }
+
+    // Build a stage without resetting the accumulated score or lives.
+    function loadLevel() {
+      const tier = Math.floor((level - 1) / 10);
+      const rows = Math.min(8, 5 + tier);
+      const random = levelRandom(level);
+      const shift = level > 100 ? Math.floor(random() * COLS) : 0;
+      const pattern = PATTERNS[(level - 1) % 10];
+      ballSpeed = Math.min(620, BALL_SPEED + (level - 1) * 4);
+      paddle.width = Math.max(76, 112 - tier * 4);
+      paddle.x = (WIDTH - paddle.width) / 2;
+      bricks = [];
+      const totalWidth = COLS * BRICK_WIDTH + (COLS - 1) * BRICK_GAP;
+      const left = (WIDTH - totalWidth) / 2;
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < COLS; col++) {
+          const patternCol = tier % 2 === 0 ? col : COLS - 1 - col;
+          if (!pattern(row, (patternCol + shift) % COLS, rows)) continue;
+          // Leave occasional gaps to vary later stages. The bottom row
+          // is kept intact wherever the base pattern places a brick.
+          if (level > 100 && random() < 0.18 && row < rows - 1) continue;
+          // Later tiers add armor; cap durability at five hits.
+          const hp = level > 100 ? 1 + Math.floor(random() * 5) : Math.min(5, 1 +
+            (level >= 6 && (row + col + level) % 3 === 0 ? 1 : 0) +
+            (tier >= 2 && (row + col + tier) % 2 === 0 ? Math.floor(tier / 2) : 0));
+          bricks.push({
+            x: left + col * (BRICK_WIDTH + BRICK_GAP),
+            y: 64 + row * (BRICK_HEIGHT + BRICK_GAP),
+            width: BRICK_WIDTH, height: BRICK_HEIGHT,
+            color: COLORS[(row + tier) % COLORS.length], hp, maxHP: hp, alive: true
+          });
+        }
+      }
+      remaining = bricks.length;
+      resetBall();
+    }
+
+    function restartGame() {
+      score = 0;
+      lives = 3;
+      level = clamp(Math.floor(Number(levelSelect.value) || 1), 1, TOTAL_LEVELS);
+      runStartLevel = level;
+      levelSelect.value = String(level);
+      keys.left = keys.right = false;
+      loadLevel();
+    }
+
+    function completeLevel() {
+      score += 100; // Stage-clear bonus.
+      if (level === TOTAL_LEVELS) {
+        state = "won";
+        updateHUD();
+        return;
+      }
+      if (level % 5 === 0) lives = Math.min(5, lives + 1);
+      level++;
+      loadLevel(); // Wait for a fresh launch before the next stage.
+    }
+
+    function launchBall() {
+      if (state !== "ready") return;
+      ball.dx = ballSpeed * 0.4;
+      ball.dy = -Math.sqrt(ballSpeed ** 2 - ball.dx ** 2);
+      state = "playing";
+      updateHUD();
+    }
+
+    function togglePause() {
+      if (state === "playing") state = "paused";
+      else if (state === "paused") state = "playing";
+      updateHUD();
+    }
+
+    // ============================================================
+    // LOCAL SAVING — store a compact snapshot using localStorage.
+    // Save on meaningful changes and every half-second while playing.
+    // Storage failures never stop the game (e.g. restricted browsers).
+    // ============================================================
+    function saveGame() {
+      if (!initialized) return;
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify({
+          version: 1, level, score, lives, state,
+          startLevel: runStartLevel,
+          paddleX: paddle.x,
+          ball: { x: ball.x, y: ball.y, dx: ball.dx, dy: ball.dy },
+          brickHP: bricks.map(brick => brick.hp)
+        }));
+        saveStatus.textContent = "Progress saved locally · Level " + level.toLocaleString() + " / " + TOTAL_LEVELS.toLocaleString();
+      } catch (error) {
+        saveStatus.textContent = "Local saving is unavailable in this browser. You can still play.";
+      }
+    }
+
+    function restoreGame() {
+      try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return false;
+        const saved = JSON.parse(raw);
+        const integerIn = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
+        const numberIn = (value, min, max) => Number.isFinite(value) && value >= min && value <= max;
+        // Validate stored data before using it; damaged saves start fresh.
+        if (!saved || saved.version !== 1 ||
+            !integerIn(saved.level, 1, TOTAL_LEVELS) ||
+            !integerIn(saved.startLevel, 1, TOTAL_LEVELS) ||
+            !integerIn(saved.score, 0, Number.MAX_SAFE_INTEGER) ||
+            !integerIn(saved.lives, 0, 5) ||
+            !["ready", "playing", "paused", "won", "lost"].includes(saved.state) ||
+            !saved.ball || !Array.isArray(saved.brickHP)) return false;
+        if (saved.state === "lost" ? saved.lives !== 0 : saved.lives === 0) return false;
+        level = saved.level;
+        loadLevel(); // Rebuild geometry from the level, then apply saved damage.
+        if (!numberIn(saved.paddleX, 0, WIDTH - paddle.width) ||
+            !numberIn(saved.ball.x, -100, WIDTH + 100) ||
+            !numberIn(saved.ball.y, -100, HEIGHT + 100) ||
+            !numberIn(saved.ball.dx, -620, 620) ||
+            !numberIn(saved.ball.dy, -620, 620) ||
+            saved.brickHP.length !== bricks.length ||
+            !saved.brickHP.every((hp, i) => integerIn(hp, 0, bricks[i].maxHP))) return false;
+        const liveCount = saved.brickHP.filter(hp => hp > 0).length;
+        if (saved.state === "won" ? saved.level !== TOTAL_LEVELS || liveCount !== 0 : liveCount === 0) return false;
+        score = saved.score;
+        lives = saved.lives;
+        runStartLevel = saved.startLevel;
+        levelSelect.value = String(saved.startLevel);
+        paddle.x = saved.paddleX;
+        Object.assign(ball, saved.ball);
+        bricks.forEach((brick, i) => {
+          brick.hp = saved.brickHP[i];
+          brick.alive = brick.hp > 0;
+        });
+        remaining = liveCount;
+        // Never surprise the player with a moving ball after reopening.
+        state = saved.state === "playing" ? "paused" : saved.state;
+        if (state === "ready") {
+          ball.x = paddle.x + paddle.width / 2;
+          ball.y = paddle.y - ball.radius - 1;
+          ball.dx = ball.dy = 0;
+        }
+        updateHUD();
+        return true;
+      } catch (error) {
+        return false;
+      }
+    }
+
+    // ============================================================
+    // 2. INPUT HANDLING — keyboard, mouse, and touch/pointer input.
+    // ============================================================
+    document.addEventListener("keydown", (event) => {
+      // Preserve normal keyboard activation of the UI buttons.
+      if (event.target instanceof HTMLButtonElement || event.target instanceof HTMLInputElement) return;
+      const key = event.key.toLowerCase();
+      if (["arrowleft", "arrowright", "a", "d", " ", "p", "r"].includes(key)) {
+        event.preventDefault();
+      }
+      if (key === "arrowleft" || key === "a") keys.left = true;
+      if (key === "arrowright" || key === "d") keys.right = true;
+      if (event.repeat) return;
+      if (key === " ") launchBall();
+      if (key === "p") togglePause();
+      if (key === "r") restartGame();
+    });
+    document.addEventListener("keyup", (event) => {
+      const key = event.key.toLowerCase();
+      if (key === "arrowleft" || key === "a") keys.left = false;
+      if (key === "arrowright" || key === "d") keys.right = false;
+    });
+
+    function movePointer(event) {
+      if (state !== "ready" && state !== "playing") return;
+      const bounds = canvas.getBoundingClientRect();
+      const x = (event.clientX - bounds.left) * WIDTH / bounds.width;
+      paddle.x = clamp(x - paddle.width / 2, 0, WIDTH - paddle.width);
+    }
+    canvas.addEventListener("pointermove", movePointer);
+    canvas.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      canvas.setPointerCapture(event.pointerId);
+      movePointer(event);
+      // Sync the waiting ball before launching from a new position.
+      if (state === "ready") resetBall();
+      launchBall();
+    });
+    document.getElementById("jump").addEventListener("click", restartGame);
+    launchButton.addEventListener("click", launchBall);
+    pauseButton.addEventListener("click", togglePause);
+    document.getElementById("restart").addEventListener("click", restartGame);
+
+    function pauseOnBlur() {
+      keys.left = keys.right = false;
+      if (state === "playing") {
+        state = "paused";
+        updateHUD();
+      }
+    }
+    window.addEventListener("blur", pauseOnBlur);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) pauseOnBlur();
+    });
+
+    // ============================================================
+    // 3. PHYSICS UPDATES — velocity, walls, paddle, bricks, and lives.
+    // ============================================================
+    function circleHitsRectangle(circle, rectangle) {
+      const closestX = clamp(circle.x, rectangle.x, rectangle.x + rectangle.width);
+      const closestY = clamp(circle.y, rectangle.y, rectangle.y + rectangle.height);
+      const distanceX = circle.x - closestX;
+      const distanceY = circle.y - closestY;
+      return distanceX ** 2 + distanceY ** 2 <= circle.radius ** 2;
+    }
+
+    function update(dt) {
+      if (state !== "playing" && state !== "ready") return;
+      const direction = Number(keys.right) - Number(keys.left);
+      paddle.x = clamp(paddle.x + direction * paddle.speed * dt,
+        0, WIDTH - paddle.width);
+
+      if (state === "ready") {
+        ball.x = paddle.x + paddle.width / 2;
+        return;
+      }
+
+      const previousY = ball.y;
+      ball.x += ball.dx * dt;
+      ball.y += ball.dy * dt;
+
+      // Reposition inside the wall before reflecting its velocity.
+      if (ball.x - ball.radius <= 0) {
+        ball.x = ball.radius;
+        ball.dx = Math.abs(ball.dx);
+      } else if (ball.x + ball.radius >= WIDTH) {
+        ball.x = WIDTH - ball.radius;
+        ball.dx = -Math.abs(ball.dx);
+      }
+      if (ball.y - ball.radius <= 0) {
+        ball.y = ball.radius;
+        ball.dy = Math.abs(ball.dy);
+      }
+
+      // Only catch a descending ball crossing the paddle's top.
+      if (ball.dy > 0 && previousY + ball.radius <= paddle.y &&
+          ball.y + ball.radius >= paddle.y &&
+          ball.x + ball.radius >= paddle.x &&
+          ball.x - ball.radius <= paddle.x + paddle.width) {
+        ball.y = paddle.y - ball.radius;
+        // Center hits go upward; edge hits travel at a wider angle.
+        const offset = clamp(
+          (ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2), -1, 1);
+        const angle = offset * Math.PI / 3;
+        ball.dx = ballSpeed * Math.sin(angle);
+        ball.dy = -ballSpeed * Math.cos(angle);
+      }
+
+      for (const brick of bricks) {
+        if (!brick.alive || !circleHitsRectangle(ball, brick)) continue;
+        brick.hp--;
+        score += 5; // Every hit earns points, including armored bricks.
+        if (brick.hp === 0) {
+          brick.alive = false;
+          remaining--;
+          score += 5;
+        }
+        // Classic simplified brick response: reverse vertical velocity.
+        // Resolve overlap so the ball does not remain inside the brick.
+        ball.y = ball.dy > 0 ? brick.y - ball.radius - 0.1 :
+          brick.y + brick.height + ball.radius + 0.1;
+        ball.dy *= -1;
+        if (remaining === 0) {
+          completeLevel();
+          return; // Do not apply old-stage physics to the reset ball.
+        }
+        updateHUD();
+        break; // One brick per step prevents double velocity reversals.
+      }
+
+      if (ball.y - ball.radius > HEIGHT) {
+        lives--;
+        if (lives === 0) {
+          state = "lost";
+          updateHUD();
+        } else {
+          resetBall();
+        }
+      }
+    }
+
+    // ============================================================
+    // 4. RENDERING — drawing has no effect on game physics.
+    // ============================================================
+    function render() {
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+      ctx.strokeStyle = "#18253e";
+      ctx.lineWidth = 1;
+      for (let x = 0; x < WIDTH; x += 40) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, HEIGHT); ctx.stroke();
+      }
+      for (const brick of bricks) {
+        if (!brick.alive) continue;
+        ctx.fillStyle = brick.color;
+        ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+        ctx.fillStyle = "rgba(255,255,255,0.22)";
+        ctx.fillRect(brick.x, brick.y, brick.width, 3);
+        if (brick.hp > 1) {
+          ctx.fillStyle = "#101a30";
+          ctx.font = "bold 14px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText(brick.hp, brick.x + brick.width / 2, brick.y + 16);
+        }
+      }
+      ctx.fillStyle = "#80edcc";
+      ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      const messages = {
+        ready: ["Level " + level.toLocaleString() + " · " + PATTERN_NAMES[(level - 1) % 10], "Press Space, tap the board, or click Launch ball"],
+        paused: ["Paused", "Press P or click Resume"],
+        won: ["Campaign complete!", "All 1,000,000 levels cleared — press R to play again"],
+        lost: ["Game over", "Press R or click Restart to try again"]
+      };
+      if (messages[state]) {
+        ctx.fillStyle = "rgba(11,16,32,0.78)";
+        ctx.fillRect(0, 230, WIDTH, 140);
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 32px system-ui";
+        ctx.fillText(messages[state][0], WIDTH / 2, 288);
+        ctx.fillStyle = "#b9c8e2";
+        ctx.font = "17px system-ui";
+        ctx.fillText(messages[state][1], WIDTH / 2, 325);
+      }
+    }
+
+    // ============================================================
+    // 5. GAME LOOP — fixed physics steps, browser-scheduled rendering.
+    // Cap elapsed time to avoid jumps after a stalled/hidden tab.
+    // ============================================================
+    let lastTime = null;
+    let accumulator = 0;
+    function gameLoop(timestamp) {
+      if (lastTime === null) lastTime = timestamp;
+      const elapsed = Math.min((timestamp - lastTime) / 1000, 0.05);
+      accumulator += elapsed;
+      lastTime = timestamp;
+      while (accumulator >= STEP) {
+        update(STEP);
+        accumulator -= STEP;
+      }
+      saveTimer += elapsed;
+      if (saveTimer >= 0.5) {
+        if (state === "playing" || state === "ready") saveGame();
+        saveTimer = 0;
+      }
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+    if (!restoreGame()) restartGame();
+    initialized = true;
+    updateHUD();
+    window.addEventListener("pagehide", saveGame);
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
