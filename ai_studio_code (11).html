@@ -1,0 +1,2922 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-accent="blue">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stopwatch</title>
+  <meta name="description" content="A minimalist, professional stopwatch utility with lap tracking, analytics, and session storage.">
+  <style>
+    /* -------------------------------------------------------------
+       Design Tokens & CSS Variables
+       ------------------------------------------------------------- */
+    :root {
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+      --font-mono: "SF Mono", "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+
+      /* Light Theme (Default) */
+      --bg-page: #fbfbfc;
+      --bg-surface: #ffffff;
+      --bg-subtle: #f3f4f6;
+      --bg-subtle-hover: #e5e7eb;
+      --border-subtle: #e5e7eb;
+      --border-strong: #d1d5db;
+
+      --text-main: #111827;
+      --text-muted: #6b7280;
+      --text-faint: #9ca3af;
+      --text-inverse: #ffffff;
+
+      /* Accents */
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-subtle: #eff6ff;
+      --accent-contrast: #ffffff;
+
+      /* Semantic Badges */
+      --badge-fastest-bg: #ecfdf5;
+      --badge-fastest-text: #059669;
+      --badge-fastest-bar: #10b981;
+      --badge-slowest-bg: #fef2f2;
+      --badge-slowest-text: #dc2626;
+      --badge-slowest-bar: #ef4444;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-pill: 9999px;
+
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+      --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+
+      --timer-font-size: 5.25rem;
+      --transition-fast: 0.15s ease;
+    }
+
+    [data-theme="dark"] {
+      --bg-page: #0f1115;
+      --bg-surface: #171920;
+      --bg-subtle: #21242d;
+      --bg-subtle-hover: #2b2f3a;
+      --border-subtle: #2b2f3a;
+      --border-strong: #3e4452;
+
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-faint: #6b7280;
+      --text-inverse: #0f1115;
+
+      --badge-fastest-bg: rgba(16, 185, 129, 0.15);
+      --badge-fastest-text: #34d399;
+      --badge-fastest-bar: #10b981;
+      --badge-slowest-bg: rgba(239, 68, 68, 0.15);
+      --badge-slowest-text: #f87171;
+      --badge-slowest-bar: #ef4444;
+
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 8px -1px rgba(0, 0, 0, 0.4);
+      --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
+    }
+
+    /* Accent color variants */
+    [data-accent="blue"]   { --accent: #2563eb; --accent-hover: #1d4ed8; --accent-subtle: rgba(37, 99, 235, 0.1); }
+    [data-accent="emerald"]{ --accent: #059669; --accent-hover: #047857; --accent-subtle: rgba(5, 150, 105, 0.1); }
+    [data-accent="slate"]  { --accent: #475569; --accent-hover: #334155; --accent-subtle: rgba(71, 85, 105, 0.1); }
+    [data-accent="amber"]  { --accent: #d97706; --accent-hover: #b45309; --accent-subtle: rgba(217, 119, 6, 0.1); }
+    [data-accent="rose"]   { --accent: #e11d48; --accent-hover: #be123c; --accent-subtle: rgba(225, 29, 72, 0.1); }
+
+    /* Reduced Motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001s !important;
+        transition-duration: 0.001s !important;
+      }
+    }
+
+    body.reduce-animations *, body.reduce-animations *::before, body.reduce-animations *::after {
+      animation-duration: 0.001s !important;
+      transition-duration: 0.001s !important;
+    }
+
+    /* -------------------------------------------------------------
+       Base & Reset
+       ------------------------------------------------------------- */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      min-height: 100vh;
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    button, input, select {
+      font-family: inherit;
+      font-size: inherit;
+      color: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      border: 1px solid transparent;
+      background: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+      outline: none;
+    }
+
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* -------------------------------------------------------------
+       Application Shell
+       ------------------------------------------------------------- */
+    .app-wrapper {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 24px 20px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      min-height: 100vh;
+    }
+
+    /* Focus Mode hides secondary elements */
+    body.focus-mode .app-header .header-center,
+    body.focus-mode .app-secondary,
+    body.focus-mode .app-footer,
+    body.focus-mode .stats-strip {
+      display: none !important;
+    }
+
+    body.focus-mode .app-wrapper {
+      justify-content: center;
+      align-items: center;
+      max-width: 800px;
+      padding-top: 0;
+    }
+
+    body.focus-mode .stopwatch-card {
+      border: none;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    /* -------------------------------------------------------------
+       Header
+       ------------------------------------------------------------- */
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 1.15rem;
+      letter-spacing: -0.015em;
+    }
+
+    .brand-icon {
+      color: var(--accent);
+      width: 22px;
+      height: 22px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      color: var(--text-muted);
+      border: 1px solid transparent;
+      padding: 0;
+    }
+
+    .icon-btn:hover {
+      background-color: var(--bg-subtle);
+      color: var(--text-main);
+      border-color: var(--border-subtle);
+    }
+
+    .icon-btn.active {
+      color: var(--accent);
+      background-color: var(--accent-subtle);
+      border-color: var(--accent);
+    }
+
+    .icon-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* -------------------------------------------------------------
+       Main Stopwatch Section
+       ------------------------------------------------------------- */
+    .stopwatch-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 44px 28px 36px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+    }
+
+    /* Countdown Overlay */
+    .countdown-overlay {
+      position: absolute;
+      inset: 0;
+      background-color: var(--bg-surface);
+      border-radius: var(--radius-lg);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+
+    .countdown-overlay.active {
+      display: flex;
+    }
+
+    .countdown-number {
+      font-size: 7rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--accent);
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+
+    .status-badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 10px;
+      border-radius: var(--radius-pill);
+      background: var(--bg-subtle);
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .status-badge[data-state="running"] {
+      background: var(--badge-fastest-bg);
+      color: var(--badge-fastest-text);
+    }
+
+    .status-badge[data-state="paused"] {
+      background: rgba(234, 179, 8, 0.15);
+      color: #b45309;
+    }
+
+    [data-theme="dark"] .status-badge[data-state="paused"] {
+      color: #fbbf24;
+    }
+
+    .status-badge[data-state="stopped"] {
+      background: var(--badge-slowest-bg);
+      color: var(--badge-slowest-text);
+    }
+
+    /* Digital Display */
+    .display-container {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      line-height: 1;
+      user-select: none;
+      margin: 8px 0 32px;
+      font-size: var(--timer-font-size);
+      font-weight: 500;
+      letter-spacing: -0.03em;
+    }
+
+    .time-main {
+      color: var(--text-main);
+    }
+
+    .time-sub {
+      color: var(--text-muted);
+      font-size: 0.48em;
+      margin-left: 3px;
+      font-weight: 400;
+    }
+
+    .time-sub.hidden {
+      display: none;
+    }
+
+    /* Split Time Sub-indicator */
+    .split-indicator {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: -20px;
+      margin-bottom: 24px;
+      min-height: 1.3em;
+      letter-spacing: -0.01em;
+    }
+
+    /* Control Buttons */
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      max-width: 580px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: var(--radius-md);
+      font-size: 0.95rem;
+      font-weight: 500;
+      border: 1px solid var(--border-strong);
+      background-color: var(--bg-surface);
+      color: var(--text-main);
+      min-width: 90px;
+      height: 44px;
+    }
+
+    .btn:hover:not(:disabled) {
+      background-color: var(--bg-subtle);
+    }
+
+    .btn:disabled {
+      opacity: 0.38;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background-color: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-contrast);
+      font-weight: 600;
+      min-width: 110px;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background-color: var(--accent-hover);
+      border-color: var(--accent-hover);
+      color: var(--accent-contrast);
+    }
+
+    .btn-danger {
+      color: #dc2626;
+      border-color: rgba(220, 38, 38, 0.25);
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background-color: var(--badge-slowest-bg);
+      border-color: #dc2626;
+    }
+
+    .btn-subtle {
+      border-color: transparent;
+      color: var(--text-muted);
+      padding: 10px 14px;
+      min-width: auto;
+    }
+
+    .btn-subtle:hover:not(:disabled) {
+      background-color: var(--bg-subtle);
+      color: var(--text-main);
+    }
+
+    /* -------------------------------------------------------------
+       Stats Strip (Key metrics)
+       ------------------------------------------------------------- */
+    .stats-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+    }
+
+    .stat-pill {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-label {
+      font-size: 0.73rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .stat-value {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .stat-value.fastest {
+      color: var(--badge-fastest-text);
+    }
+
+    .stat-value.slowest {
+      color: var(--badge-slowest-text);
+    }
+
+    /* -------------------------------------------------------------
+       Secondary Area: Laps, Chart, Full Statistics
+       ------------------------------------------------------------- */
+    .app-secondary {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .secondary-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .view-tabs {
+      display: flex;
+      background: var(--bg-subtle);
+      padding: 3px;
+      border-radius: var(--radius-md);
+      gap: 2px;
+    }
+
+    .tab-btn {
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      border: none;
+    }
+
+    .tab-btn.active {
+      background: var(--bg-surface);
+      color: var(--text-main);
+      box-shadow: var(--shadow-sm);
+      font-weight: 600;
+    }
+
+    .secondary-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .search-box {
+      position: relative;
+    }
+
+    .search-box input {
+      padding: 6px 10px 6px 28px;
+      font-size: 0.85rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-strong);
+      background: var(--bg-page);
+      width: 140px;
+      transition: width var(--transition-fast);
+    }
+
+    .search-box input:focus {
+      width: 180px;
+    }
+
+    .search-box svg {
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 14px;
+      height: 14px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .filter-select {
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-strong);
+      background: var(--bg-page);
+    }
+
+    /* Tab Content Panes */
+    .tab-pane {
+      display: none;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    /* Lap Table */
+    .table-container {
+      max-height: 380px;
+      overflow-y: auto;
+      position: relative;
+    }
+
+    .lap-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .lap-table th {
+      position: sticky;
+      top: 0;
+      background: var(--bg-subtle);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 10px 18px;
+      z-index: 2;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .lap-table td {
+      padding: 11px 18px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.88rem;
+    }
+
+    .lap-table tr:hover td {
+      background-color: var(--bg-subtle);
+    }
+
+    .lap-table tr.row-fastest td {
+      background-color: var(--badge-fastest-bg);
+      color: var(--badge-fastest-text);
+      font-weight: 600;
+    }
+
+    .lap-table tr.row-slowest td {
+      background-color: var(--badge-slowest-bg);
+      color: var(--badge-slowest-text);
+    }
+
+    .lap-tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: var(--radius-pill);
+      margin-left: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .lap-tag.fastest {
+      background: var(--badge-fastest-text);
+      color: #ffffff;
+    }
+
+    .lap-tag.slowest {
+      background: var(--badge-slowest-text);
+      color: #ffffff;
+    }
+
+    .del-btn {
+      color: var(--text-faint);
+      padding: 4px;
+      border-radius: var(--radius-sm);
+    }
+
+    .del-btn:hover {
+      color: var(--badge-slowest-text);
+      background: var(--badge-slowest-bg);
+    }
+
+    /* Empty state */
+    .empty-state {
+      padding: 48px 20px;
+      text-align: center;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .empty-state svg {
+      width: 36px;
+      height: 36px;
+      color: var(--text-faint);
+      margin-bottom: 4px;
+    }
+
+    /* Lap Chart View */
+    .chart-container {
+      padding: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .chart-row {
+      display: grid;
+      grid-template-columns: 70px 1fr 100px;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.85rem;
+    }
+
+    .chart-label {
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    .chart-track {
+      background: var(--bg-subtle);
+      height: 20px;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      display: flex;
+      position: relative;
+    }
+
+    .chart-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: var(--radius-sm);
+      min-width: 4px;
+      transition: width var(--transition-fast);
+    }
+
+    .chart-bar.fastest {
+      background: var(--badge-fastest-bar);
+    }
+
+    .chart-bar.slowest {
+      background: var(--badge-slowest-bar);
+    }
+
+    .chart-val {
+      font-family: var(--font-mono);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-main);
+      font-size: 0.82rem;
+    }
+
+    /* Detailed Statistics View */
+    .stats-pane {
+      padding: 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .stats-card {
+      background: var(--bg-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .stats-card-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .stats-card-value {
+      font-family: var(--font-mono);
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: var(--text-main);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stats-card-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Table Toolbar Footer */
+    .table-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .table-footer-links {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* -------------------------------------------------------------
+       Modal Dialogs (Settings, Sessions, Shortcuts, Confirm)
+       ------------------------------------------------------------- */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(2px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 480px;
+      box-shadow: var(--shadow-modal);
+      overflow: hidden;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .modal-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .modal-body {
+      padding: 22px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .setting-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .setting-label {
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .setting-desc {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .setting-control select,
+    .setting-control input[type="text"] {
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-strong);
+      background: var(--bg-page);
+      font-size: 0.88rem;
+    }
+
+    .setting-control input[type="range"] {
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .setting-control input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .color-picker {
+      display: flex;
+      gap: 8px;
+    }
+
+    .color-swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      outline-offset: 2px;
+      cursor: pointer;
+    }
+
+    .color-swatch.active {
+      outline: 2px solid var(--text-main);
+    }
+
+    .modal-footer {
+      padding: 14px 22px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      background: var(--bg-subtle);
+    }
+
+    /* Saved Sessions List */
+    .session-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+
+    .session-item {
+      background: var(--bg-page);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .session-meta-name {
+      font-weight: 600;
+      font-size: 0.92rem;
+    }
+
+    .session-meta-details {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 2px;
+    }
+
+    .session-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    /* Shortcuts list */
+    .shortcuts-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .shortcut-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.88rem;
+    }
+
+    kbd {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-strong);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+    }
+
+    /* Toast Notification */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2000;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: var(--text-main);
+      color: var(--bg-page);
+      padding: 8px 18px;
+      border-radius: var(--radius-pill);
+      font-size: 0.85rem;
+      font-weight: 500;
+      box-shadow: var(--shadow-md);
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Screen Reader Only Utility */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+
+    /* -------------------------------------------------------------
+       Responsive Adjustments
+       ------------------------------------------------------------- */
+    @media (max-width: 640px) {
+      :root {
+        --timer-font-size: 3.5rem;
+      }
+
+      .app-wrapper {
+        padding: 16px 12px 32px;
+      }
+
+      .stopwatch-card {
+        padding: 32px 16px 24px;
+      }
+
+      .secondary-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .secondary-actions {
+        justify-content: space-between;
+      }
+
+      .search-box input {
+        width: 100%;
+      }
+
+      .search-box input:focus {
+        width: 100%;
+      }
+
+      .chart-row {
+        grid-template-columns: 55px 1fr 80px;
+        font-size: 0.78rem;
+      }
+
+      .btn {
+        flex: 1 1 calc(50% - 12px);
+      }
+    }
+
+    /* -------------------------------------------------------------
+       Print Stylesheet
+       ------------------------------------------------------------- */
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #000000 !important;
+      }
+
+      .app-header,
+      .controls-row,
+      .secondary-actions,
+      .table-footer,
+      .modal-backdrop,
+      .toast-container,
+      .del-btn {
+        display: none !important;
+      }
+
+      .app-wrapper {
+        max-width: 100% !important;
+        padding: 0 !important;
+      }
+
+      .stopwatch-card,
+      .app-secondary {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 10px 0 !important;
+      }
+
+      .tab-pane {
+        display: block !important;
+      }
+
+      #chartView, #statsView {
+        display: none !important;
+      }
+
+      .display-container {
+        font-size: 3rem !important;
+        margin-bottom: 12px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Screen reader announcer -->
+  <div id="srAnnounce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+  <div class="app-wrapper">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="13" r="8"></circle>
+          <path d="M12 9v4l2.5 2.5"></path>
+          <path d="M5 3 2 6"></path>
+          <path d="m22 6-3-3"></path>
+          <path d="M12 2v3"></path>
+        </svg>
+        <span>Stopwatch</span>
+      </div>
+
+      <div class="header-actions">
+        <button id="focusBtn" class="icon-btn" title="Focus Mode" aria-label="Toggle Focus Mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/>
+          </svg>
+        </button>
+
+        <button id="soundToggleBtn" class="icon-btn" title="Sound Muted" aria-label="Toggle Sound">
+          <svg id="soundIconOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+        </button>
+
+        <button id="savedSessionsBtn" class="icon-btn" title="Saved Sessions" aria-label="Open Saved Sessions">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+        </button>
+
+        <button id="shortcutsBtn" class="icon-btn" title="Keyboard Shortcuts" aria-label="Keyboard Shortcuts">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+            <path d="M6 8h.001M10 8h.001M14 8h.001M18 8h.001M8 12h.001M12 12h.001M16 12h.001M6 16h12"></path>
+          </svg>
+        </button>
+
+        <button id="settingsBtn" class="icon-btn" title="Settings" aria-label="Open Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+
+        <button id="themeToggleBtn" class="icon-btn" title="Toggle Theme" aria-label="Toggle Color Theme">
+          <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+
+        <button id="fullscreenBtn" class="icon-btn" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Stopwatch Component -->
+    <main class="stopwatch-card" aria-label="Timer panel">
+      <!-- Countdown overlay layer -->
+      <div id="countdownOverlay" class="countdown-overlay" aria-hidden="true">
+        <div id="countdownNumber" class="countdown-number">3</div>
+        <button id="cancelCountdownBtn" class="btn btn-subtle">Cancel Countdown</button>
+      </div>
+
+      <div id="statusBadge" class="status-badge" data-state="idle">
+        <span class="status-dot"></span>
+        <span id="statusText">Ready</span>
+      </div>
+
+      <!-- Large Digit Display -->
+      <div class="display-container" role="timer" aria-live="off" aria-label="Elapsed Time">
+        <span id="displayMain" class="time-main">00:00:00</span>
+        <span id="displaySub" class="time-sub">.000</span>
+      </div>
+
+      <!-- Split preview readout -->
+      <div id="splitIndicator" class="split-indicator" aria-hidden="true"></div>
+
+      <!-- Main Controls -->
+      <div class="controls-row">
+        <button id="startPauseBtn" class="btn btn-primary" aria-label="Start Timer">Start</button>
+        <button id="lapBtn" class="btn" disabled aria-label="Record Lap">Lap</button>
+        <button id="splitBtn" class="btn btn-subtle" disabled aria-label="Record Split Time">Split</button>
+        <button id="stopBtn" class="btn btn-danger" disabled aria-label="Stop Timer">Stop</button>
+        <button id="resetBtn" class="btn" disabled aria-label="Reset Timer">Reset</button>
+        <button id="restartBtn" class="btn btn-subtle" disabled aria-label="Restart Timer">Restart</button>
+      </div>
+    </main>
+
+    <!-- Stat Strip (Quick Glance) -->
+    <section class="stats-strip" aria-label="Quick Statistics">
+      <div class="stat-pill">
+        <span class="stat-label">Laps</span>
+        <span id="stripLapCount" class="stat-value">0</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Fastest Lap</span>
+        <span id="stripFastest" class="stat-value fastest">—</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Slowest Lap</span>
+        <span id="stripSlowest" class="stat-value slowest">—</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Average Lap</span>
+        <span id="stripAverage" class="stat-value">—</span>
+      </div>
+    </section>
+
+    <!-- Secondary Tabbed Panel: Laps / Performance Chart / Deep Stats -->
+    <section class="app-secondary" aria-label="Lap History and Analytics">
+      <div class="secondary-header">
+        <div class="view-tabs" role="tablist">
+          <button class="tab-btn active" data-tab="lapsView" role="tab" aria-selected="true">Lap Table</button>
+          <button class="tab-btn" data-tab="chartView" role="tab" aria-selected="false">Lap Chart</button>
+          <button class="tab-btn" data-tab="statsView" role="tab" aria-selected="false">Statistics</button>
+        </div>
+
+        <div class="secondary-actions">
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input id="lapSearchInput" type="text" placeholder="Filter laps..." aria-label="Filter laps by number or time">
+          </div>
+
+          <select id="lapSortSelect" class="filter-select" aria-label="Sort lap order">
+            <option value="num-desc">Latest first</option>
+            <option value="num-asc">Oldest first</option>
+            <option value="dur-asc">Fastest first</option>
+            <option value="dur-desc">Slowest first</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Tab Pane 1: Table -->
+      <div id="lapsView" class="tab-pane active" role="tabpanel">
+        <div class="table-container">
+          <table class="lap-table" id="lapTable" aria-label="Recorded Laps">
+            <thead>
+              <tr>
+                <th style="width: 14%;">Lap #</th>
+                <th style="width: 28%;">Lap Duration</th>
+                <th style="width: 28%;">Overall Time</th>
+                <th style="width: 20%;">Difference</th>
+                <th style="width: 10%; text-align: right;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="lapTableBody">
+              <!-- Dynamically populated or empty state -->
+            </tbody>
+          </table>
+          <div id="tableEmptyState" class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <p>No laps recorded yet. Press <strong>Lap</strong> (or key <kbd>L</kbd>) while the timer is running.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Pane 2: Visual Chart -->
+      <div id="chartView" class="tab-pane" role="tabpanel">
+        <div id="chartContent" class="chart-container">
+          <!-- Dynamically populated bars -->
+        </div>
+        <div id="chartEmptyState" class="empty-state">
+          <p>No laps to chart. Record at least one lap to view performance comparisons.</p>
+        </div>
+      </div>
+
+      <!-- Tab Pane 3: Deep Statistics -->
+      <div id="statsView" class="tab-pane" role="tabpanel">
+        <div class="stats-pane">
+          <div class="stats-card">
+            <span class="stats-card-title">Total Elapsed</span>
+            <span id="statTotalElapsed" class="stats-card-value">00:00:00.000</span>
+            <span class="stats-card-sub">Active timing duration</span>
+          </div>
+          <div class="stats-card">
+            <span class="stats-card-title">Recorded Laps</span>
+            <span id="statLapCount" class="stats-card-value">0</span>
+            <span class="stats-card-sub">Total splits logged</span>
+          </div>
+          <div class="stats-card">
+            <span class="stats-card-title">Fastest Lap</span>
+            <span id="statFastest" class="stats-card-value">—</span>
+            <span id="statFastestLapNum" class="stats-card-sub">Best performance</span>
+          </div>
+          <div class="stats-card">
+            <span class="stats-card-title">Slowest Lap</span>
+            <span id="statSlowest" class="stats-card-value">—</span>
+            <span id="statSlowestLapNum" class="stats-card-sub">Maximum lap span</span>
+          </div>
+          <div class="stats-card">
+            <span class="stats-card-title">Average Lap</span>
+            <span id="statAverage" class="stats-card-value">—</span>
+            <span class="stats-card-sub">Mean lap duration</span>
+          </div>
+          <div class="stats-card">
+            <span class="stats-card-title">Median Lap</span>
+            <span id="statMedian" class="stats-card-value">—</span>
+            <span class="stats-card-sub">Middle value of all laps</span>
+          </div>
+          <div class="stats-card">
+            <span class="stats-card-title">Consecutive Improvement</span>
+            <span id="statBestImprovement" class="stats-card-value">—</span>
+            <span class="stats-card-sub">Largest single-lap drop</span>
+          </div>
+          <div class="stats-card">
+            <span class="stats-card-title">Average Variance</span>
+            <span id="statAvgDiff" class="stats-card-value">—</span>
+            <span class="stats-card-sub">Avg delta between consecutive laps</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table & Session Toolbar -->
+      <div class="table-footer">
+        <div class="table-footer-links">
+          <button id="exportCsvBtn" class="btn btn-subtle" title="Export as CSV file">Export CSV</button>
+          <button id="exportJsonBtn" class="btn btn-subtle" title="Export JSON file">Export JSON</button>
+          <button id="copySummaryBtn" class="btn btn-subtle" title="Copy text summary to clipboard">Copy Summary</button>
+          <button id="printReportBtn" class="btn btn-subtle" title="Print session report">Print Report</button>
+        </div>
+        <div style="display:flex; gap: 8px;">
+          <button id="saveSessionBtn" class="btn btn-subtle" title="Save this session to browser storage">Save Session</button>
+          <button id="clearLapsBtn" class="btn btn-subtle" style="color: var(--badge-slowest-text);" title="Clear all lap entries">Clear Laps</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="settingsModalTitle" class="modal-title">Settings</h2>
+        <button class="icon-btn close-modal" aria-label="Close dialog">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Theme Mode -->
+        <div class="setting-group">
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Appearance Theme</div>
+              <div class="setting-desc">Choose between light, dark, or system preference</div>
+            </div>
+            <div class="setting-control">
+              <select id="themeSelect">
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="system">System</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Accent Color -->
+        <div class="setting-group">
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Accent Color</div>
+              <div class="setting-desc">Restrained highlighting tint</div>
+            </div>
+            <div class="color-picker" id="accentColorPicker">
+              <button class="color-swatch active" data-color="blue" style="background:#2563eb;" title="Blue"></button>
+              <button class="color-swatch" data-color="emerald" style="background:#059669;" title="Emerald"></button>
+              <button class="color-swatch" data-color="slate" style="background:#475569;" title="Slate"></button>
+              <button class="color-swatch" data-color="amber" style="background:#d97706;" title="Amber"></button>
+              <button class="color-swatch" data-color="rose" style="background:#e11d48;" title="Rose"></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timer Precision -->
+        <div class="setting-group">
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Time Precision</div>
+              <div class="setting-desc">Adjust millisecond display granularity</div>
+            </div>
+            <div class="setting-control">
+              <select id="precisionSelect">
+                <option value="millis">Milliseconds (.000)</option>
+                <option value="centis">Centiseconds (.00)</option>
+                <option value="hidden">Hide fractions (seconds only)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timer Font Size -->
+        <div class="setting-group">
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Timer Size</div>
+              <div class="setting-desc">Scale digit size for distance readability</div>
+            </div>
+            <div class="setting-control">
+              <select id="fontSizeSelect">
+                <option value="default">Standard</option>
+                <option value="large">Large</option>
+                <option value="huge">Extra Large</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Countdown -->
+        <div class="setting-group">
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Start Countdown</div>
+              <div class="setting-desc">Lead-in countdown delay before timing starts</div>
+            </div>
+            <div class="setting-control">
+              <select id="countdownSelect">
+                <option value="0">None (Immediate)</option>
+                <option value="3">3 seconds</option>
+                <option value="5">5 seconds</option>
+                <option value="10">10 seconds</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sound & Volume -->
+        <div class="setting-group">
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Audio Cues</div>
+              <div class="setting-desc">Synthesized sound feedback on actions</div>
+            </div>
+            <div class="setting-control">
+              <input type="checkbox" id="soundCheckbox">
+            </div>
+          </div>
+          <div class="setting-row" style="margin-top: 6px;">
+            <div class="setting-desc">Sound Volume</div>
+            <div class="setting-control" style="display:flex; align-items:center; gap:8px;">
+              <input type="range" id="volumeRange" min="0.05" max="1" step="0.05" value="0.5" style="width:110px;">
+              <button id="testSoundBtn" class="btn btn-subtle" style="font-size:0.75rem; padding:3px 8px;">Test</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reset Confirmation -->
+        <div class="setting-group">
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Confirm Reset</div>
+              <div class="setting-desc">Ask for confirmation before clearing active session</div>
+            </div>
+            <div class="setting-control">
+              <input type="checkbox" id="confirmResetCheckbox" checked>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reduced Motion -->
+        <div class="setting-group">
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Reduce Animations</div>
+              <div class="setting-desc">Disable interface transitions for performance</div>
+            </div>
+            <div class="setting-control">
+              <input type="checkbox" id="reduceMotionCheckbox">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary close-modal">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Saved Sessions Modal -->
+  <div id="sessionsModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="sessionsModalTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="sessionsModalTitle" class="modal-title">Saved Sessions</h2>
+        <button class="icon-btn close-modal" aria-label="Close dialog">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="sessionsList" class="session-list">
+          <!-- Populated by JavaScript -->
+        </div>
+        <div id="sessionsEmptyState" class="empty-state" style="padding: 24px 0;">
+          <p>No saved sessions found in browser storage.</p>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button id="clearAllSessionsBtn" class="btn btn-danger" style="font-size: 0.8rem;">Delete All</button>
+        <button class="btn btn-primary close-modal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keyboard Shortcuts Modal -->
+  <div id="shortcutsModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="shortcutsModalTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="shortcutsModalTitle" class="modal-title">Keyboard Shortcuts</h2>
+        <button class="icon-btn close-modal" aria-label="Close dialog">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="shortcuts-list">
+          <div class="shortcut-row">
+            <span>Start / Pause / Resume</span>
+            <kbd>Space</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span>Record Lap</span>
+            <kbd>L</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span>Reset Stopwatch</span>
+            <kbd>R</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span>Toggle Fullscreen</span>
+            <kbd>F</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span>Toggle Audio</span>
+            <kbd>M</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span>Close Panel / Exit Focus</span>
+            <kbd>Esc</kbd>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary close-modal">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save Session Name Modal -->
+  <div id="saveSessionPromptModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="savePromptTitle">
+    <div class="modal-card" style="max-width: 380px;">
+      <div class="modal-header">
+        <h2 id="savePromptTitle" class="modal-title">Save Session</h2>
+        <button class="icon-btn close-modal" aria-label="Close dialog">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-group">
+          <label for="sessionNameInput" class="setting-label">Session Name</label>
+          <input type="text" id="sessionNameInput" style="padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--bg-page);" placeholder="e.g., Morning Workout, Lap Practice">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-subtle close-modal">Cancel</button>
+        <button id="confirmSaveSessionBtn" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification element -->
+  <div class="toast-container" aria-live="polite">
+    <div id="toastMessage" class="toast">Action completed</div>
+  </div>
+
+  <!-- Application Logic -->
+  <script>
+    /**
+     * Stopwatch Application
+     * Minimalist, robust, high-precision timing utility.
+     */
+
+    (function() {
+      'use strict';
+
+      /* -------------------------------------------------------------
+         Application State
+         ------------------------------------------------------------- */
+      const STATE = {
+        IDLE: 'idle',
+        COUNTDOWN: 'countdown',
+        RUNNING: 'running',
+        PAUSED: 'paused',
+        STOPPED: 'stopped'
+      };
+
+      let timerState = STATE.IDLE;
+      let startTime = 0;            // Timestamp of current active run segment
+      let accumulatedTime = 0;      // Accumulated milliseconds while running
+      let lastLapOverallTime = 0;   // Overall time recorded at previous lap
+      let animFrameId = null;       // requestAnimationFrame reference
+      let countdownTimerId = null;  // Countdown interval reference
+      let countdownRemaining = 0;   // Seconds left in countdown
+
+      // Lap Records array: { id, lapNumber, durationMs, overallMs, deltaMs, timestamp }
+      let laps = [];
+
+      // User configuration default values
+      const config = {
+        theme: 'light',
+        accent: 'blue',
+        precision: 'millis', // 'millis', 'centis', 'hidden'
+        fontSize: 'default', // 'default', 'large', 'huge'
+        countdown: 0,        // 0, 3, 5, 10 seconds
+        soundEnabled: false,
+        soundVolume: 0.5,
+        confirmReset: true,
+        reduceMotion: false,
+        lapSort: 'num-desc'  // 'num-desc', 'num-asc', 'dur-asc', 'dur-desc'
+      };
+
+      /* -------------------------------------------------------------
+         DOM Elements
+         ------------------------------------------------------------- */
+      const el = {
+        body: document.body,
+        displayMain: document.getElementById('displayMain'),
+        displaySub: document.getElementById('displaySub'),
+        splitIndicator: document.getElementById('splitIndicator'),
+        statusBadge: document.getElementById('statusBadge'),
+        statusText: document.getElementById('statusText'),
+        startPauseBtn: document.getElementById('startPauseBtn'),
+        lapBtn: document.getElementById('lapBtn'),
+        splitBtn: document.getElementById('splitBtn'),
+        stopBtn: document.getElementById('stopBtn'),
+        resetBtn: document.getElementById('resetBtn'),
+        restartBtn: document.getElementById('restartBtn'),
+        countdownOverlay: document.getElementById('countdownOverlay'),
+        countdownNumber: document.getElementById('countdownNumber'),
+        cancelCountdownBtn: document.getElementById('cancelCountdownBtn'),
+        lapTableBody: document.getElementById('lapTableBody'),
+        tableEmptyState: document.getElementById('tableEmptyState'),
+        chartContent: document.getElementById('chartContent'),
+        chartEmptyState: document.getElementById('chartEmptyState'),
+        lapSearchInput: document.getElementById('lapSearchInput'),
+        lapSortSelect: document.getElementById('lapSortSelect'),
+        stripLapCount: document.getElementById('stripLapCount'),
+        stripFastest: document.getElementById('stripFastest'),
+        stripSlowest: document.getElementById('stripSlowest'),
+        stripAverage: document.getElementById('stripAverage'),
+        statTotalElapsed: document.getElementById('statTotalElapsed'),
+        statLapCount: document.getElementById('statLapCount'),
+        statFastest: document.getElementById('statFastest'),
+        statFastestLapNum: document.getElementById('statFastestLapNum'),
+        statSlowest: document.getElementById('statSlowest'),
+        statSlowestLapNum: document.getElementById('statSlowestLapNum'),
+        statAverage: document.getElementById('statAverage'),
+        statMedian: document.getElementById('statMedian'),
+        statBestImprovement: document.getElementById('statBestImprovement'),
+        statAvgDiff: document.getElementById('statAvgDiff'),
+        themeToggleBtn: document.getElementById('themeToggleBtn'),
+        soundToggleBtn: document.getElementById('soundToggleBtn'),
+        focusBtn: document.getElementById('focusBtn'),
+        fullscreenBtn: document.getElementById('fullscreenBtn'),
+        settingsBtn: document.getElementById('settingsBtn'),
+        savedSessionsBtn: document.getElementById('savedSessionsBtn'),
+        shortcutsBtn: document.getElementById('shortcutsBtn'),
+        settingsModal: document.getElementById('settingsModal'),
+        sessionsModal: document.getElementById('sessionsModal'),
+        shortcutsModal: document.getElementById('shortcutsModal'),
+        saveSessionPromptModal: document.getElementById('saveSessionPromptModal'),
+        sessionNameInput: document.getElementById('sessionNameInput'),
+        confirmSaveSessionBtn: document.getElementById('confirmSaveSessionBtn'),
+        sessionsList: document.getElementById('sessionsList'),
+        sessionsEmptyState: document.getElementById('sessionsEmptyState'),
+        clearAllSessionsBtn: document.getElementById('clearAllSessionsBtn'),
+        themeSelect: document.getElementById('themeSelect'),
+        accentColorPicker: document.getElementById('accentColorPicker'),
+        precisionSelect: document.getElementById('precisionSelect'),
+        fontSizeSelect: document.getElementById('fontSizeSelect'),
+        countdownSelect: document.getElementById('countdownSelect'),
+        soundCheckbox: document.getElementById('soundCheckbox'),
+        volumeRange: document.getElementById('volumeRange'),
+        testSoundBtn: document.getElementById('testSoundBtn'),
+        confirmResetCheckbox: document.getElementById('confirmResetCheckbox'),
+        reduceMotionCheckbox: document.getElementById('reduceMotionCheckbox'),
+        exportCsvBtn: document.getElementById('exportCsvBtn'),
+        exportJsonBtn: document.getElementById('exportJsonBtn'),
+        copySummaryBtn: document.getElementById('copySummaryBtn'),
+        printReportBtn: document.getElementById('printReportBtn'),
+        saveSessionBtn: document.getElementById('saveSessionBtn'),
+        clearLapsBtn: document.getElementById('clearLapsBtn'),
+        toastMessage: document.getElementById('toastMessage'),
+        srAnnounce: document.getElementById('srAnnounce')
+      };
+
+      /* -------------------------------------------------------------
+         Web Audio Engine (Synthesizer)
+         ------------------------------------------------------------- */
+      let audioCtx = null;
+
+      function getAudioContext() {
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            audioCtx = new AudioContextClass();
+          }
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(function() {});
+        }
+        return audioCtx;
+      }
+
+      function playTone(freq, type, duration, delay = 0) {
+        if (!config.soundEnabled) return;
+        try {
+          const ctx = getAudioContext();
+          if (!ctx) return;
+
+          const now = ctx.currentTime + delay;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, now);
+
+          // Apply master volume
+          const vol = Math.max(0.01, Math.min(1, config.soundVolume)) * 0.15;
+          gain.gain.setValueAtTime(vol, now);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + duration + 0.05);
+        } catch (e) {
+          // Audio errors handled silently
+        }
+      }
+
+      const soundEffects = {
+        start: function() {
+          playTone(880, 'sine', 0.12, 0);
+          playTone(1320, 'sine', 0.15, 0.08);
+        },
+        pause: function() {
+          playTone(660, 'sine', 0.1, 0);
+          playTone(440, 'sine', 0.12, 0.07);
+        },
+        lap: function() {
+          playTone(987.77, 'sine', 0.1, 0); // B5 note
+        },
+        reset: function() {
+          playTone(330, 'triangle', 0.1, 0);
+          playTone(220, 'triangle', 0.12, 0.06);
+        },
+        countdownTick: function() {
+          playTone(523.25, 'sine', 0.08, 0); // C5
+        },
+        countdownGo: function() {
+          playTone(1046.5, 'sine', 0.25, 0); // C6
+        }
+      };
+
+      /* -------------------------------------------------------------
+         Time Math & Formatting
+         ------------------------------------------------------------- */
+      function getCurrentElapsed() {
+        if (timerState === STATE.RUNNING) {
+          return accumulatedTime + (performance.now() - startTime);
+        }
+        return accumulatedTime;
+      }
+
+      function formatTimeComponents(ms) {
+        if (!Number.isFinite(ms) || ms < 0) ms = 0;
+
+        const totalSeconds = Math.floor(ms / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        const milliseconds = Math.floor(ms % 1000);
+        const centiseconds = Math.floor((ms % 1000) / 10);
+
+        const pad = (n, z = 2) => String(n).padStart(z, '0');
+
+        return {
+          hours: pad(hours),
+          minutes: pad(minutes),
+          seconds: pad(seconds),
+          millis: pad(milliseconds, 3),
+          centis: pad(centiseconds, 2),
+          mainString: `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+        };
+      }
+
+      function formatDurationString(ms, precisionMode = config.precision) {
+        if (!Number.isFinite(ms) || ms < 0) return '—';
+        const t = formatTimeComponents(ms);
+        if (precisionMode === 'hidden') {
+          return t.mainString;
+        } else if (precisionMode === 'centis') {
+          return `${t.mainString}.${t.centis}`;
+        }
+        return `${t.mainString}.${t.millis}`;
+      }
+
+      function renderDisplay(ms) {
+        const t = formatTimeComponents(ms);
+        el.displayMain.textContent = t.mainString;
+
+        if (config.precision === 'hidden') {
+          el.displaySub.classList.add('hidden');
+        } else {
+          el.displaySub.classList.remove('hidden');
+          el.displaySub.textContent = config.precision === 'centis' ? `.${t.centis}` : `.${t.millis}`;
+        }
+      }
+
+      /* -------------------------------------------------------------
+         Animation Frame Tick Loop
+         ------------------------------------------------------------- */
+      function tick() {
+        if (timerState === STATE.RUNNING) {
+          renderDisplay(getCurrentElapsed());
+          animFrameId = requestAnimationFrame(tick);
+        }
+      }
+
+      function startAnimationLoop() {
+        if (!animFrameId) {
+          animFrameId = requestAnimationFrame(tick);
+        }
+      }
+
+      function stopAnimationLoop() {
+        if (animFrameId) {
+          cancelAnimationFrame(animFrameId);
+          animFrameId = null;
+        }
+      }
+
+      /* -------------------------------------------------------------
+         Screen Reader & Toast Announcements
+         ------------------------------------------------------------- */
+      function announce(message) {
+        if (el.srAnnounce) {
+          el.srAnnounce.textContent = message;
+        }
+      }
+
+      let toastTimeout = null;
+      function showToast(message) {
+        if (!el.toastMessage) return;
+        el.toastMessage.textContent = message;
+        el.toastMessage.classList.add('show');
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(function() {
+          el.toastMessage.classList.remove('show');
+        }, 2600);
+      }
+
+      /* -------------------------------------------------------------
+         Stopwatch State Management
+         ------------------------------------------------------------- */
+      function updateUIControls() {
+        el.statusBadge.setAttribute('data-state', timerState);
+
+        switch (timerState) {
+          case STATE.IDLE:
+            el.statusText.textContent = 'Ready';
+            el.startPauseBtn.textContent = 'Start';
+            el.startPauseBtn.className = 'btn btn-primary';
+            el.startPauseBtn.disabled = false;
+            el.lapBtn.disabled = true;
+            el.splitBtn.disabled = true;
+            el.stopBtn.disabled = true;
+            el.resetBtn.disabled = laps.length === 0 && accumulatedTime === 0;
+            el.restartBtn.disabled = true;
+            break;
+
+          case STATE.COUNTDOWN:
+            el.statusText.textContent = 'Countdown';
+            el.startPauseBtn.textContent = 'Starting...';
+            el.startPauseBtn.disabled = true;
+            el.lapBtn.disabled = true;
+            el.splitBtn.disabled = true;
+            el.stopBtn.disabled = true;
+            el.resetBtn.disabled = true;
+            el.restartBtn.disabled = true;
+            break;
+
+          case STATE.RUNNING:
+            el.statusText.textContent = 'Running';
+            el.startPauseBtn.textContent = 'Pause';
+            el.startPauseBtn.className = 'btn';
+            el.startPauseBtn.disabled = false;
+            el.lapBtn.disabled = false;
+            el.splitBtn.disabled = false;
+            el.stopBtn.disabled = false;
+            el.resetBtn.disabled = true;
+            el.restartBtn.disabled = false;
+            break;
+
+          case STATE.PAUSED:
+            el.statusText.textContent = 'Paused';
+            el.startPauseBtn.textContent = 'Resume';
+            el.startPauseBtn.className = 'btn btn-primary';
+            el.startPauseBtn.disabled = false;
+            el.lapBtn.disabled = true;
+            el.splitBtn.disabled = true;
+            el.stopBtn.disabled = false;
+            el.resetBtn.disabled = false;
+            el.restartBtn.disabled = false;
+            break;
+
+          case STATE.STOPPED:
+            el.statusText.textContent = 'Stopped';
+            el.startPauseBtn.textContent = 'Start';
+            el.startPauseBtn.className = 'btn btn-primary';
+            el.startPauseBtn.disabled = true;
+            el.lapBtn.disabled = true;
+            el.splitBtn.disabled = true;
+            el.stopBtn.disabled = true;
+            el.resetBtn.disabled = false;
+            el.restartBtn.disabled = false;
+            break;
+        }
+      }
+
+      function initiateStart() {
+        if (config.countdown > 0) {
+          startCountdown(config.countdown);
+        } else {
+          executeStart();
+        }
+      }
+
+      function startCountdown(seconds) {
+        timerState = STATE.COUNTDOWN;
+        updateUIControls();
+        countdownRemaining = seconds;
+        el.countdownNumber.textContent = countdownRemaining;
+        el.countdownOverlay.classList.add('active');
+        soundEffects.countdownTick();
+
+        if (countdownTimerId) clearInterval(countdownTimerId);
+        countdownTimerId = setInterval(function() {
+          countdownRemaining -= 1;
+          if (countdownRemaining > 0) {
+            el.countdownNumber.textContent = countdownRemaining;
+            soundEffects.countdownTick();
+          } else {
+            clearInterval(countdownTimerId);
+            countdownTimerId = null;
+            el.countdownOverlay.classList.remove('active');
+            soundEffects.countdownGo();
+            executeStart();
+          }
+        }, 1000);
+      }
+
+      function cancelCountdown() {
+        if (countdownTimerId) {
+          clearInterval(countdownTimerId);
+          countdownTimerId = null;
+        }
+        el.countdownOverlay.classList.remove('active');
+        timerState = STATE.IDLE;
+        updateUIControls();
+        announce('Countdown cancelled');
+      }
+
+      function executeStart() {
+        startTime = performance.now();
+        timerState = STATE.RUNNING;
+        updateUIControls();
+        startAnimationLoop();
+        soundEffects.start();
+        announce('Stopwatch started');
+      }
+
+      function handlePause() {
+        if (timerState !== STATE.RUNNING) return;
+        accumulatedTime += (performance.now() - startTime);
+        timerState = STATE.PAUSED;
+        stopAnimationLoop();
+        renderDisplay(accumulatedTime);
+        updateUIControls();
+        soundEffects.pause();
+        announce('Stopwatch paused at ' + formatDurationString(accumulatedTime));
+      }
+
+      function handleResume() {
+        if (timerState !== STATE.PAUSED) return;
+        startTime = performance.now();
+        timerState = STATE.RUNNING;
+        updateUIControls();
+        startAnimationLoop();
+        soundEffects.start();
+        announce('Stopwatch resumed');
+      }
+
+      function handleStop() {
+        if (timerState === STATE.RUNNING) {
+          accumulatedTime += (performance.now() - startTime);
+        }
+        timerState = STATE.STOPPED;
+        stopAnimationLoop();
+        renderDisplay(accumulatedTime);
+        updateUIControls();
+        soundEffects.pause();
+        announce('Stopwatch stopped. Final elapsed time: ' + formatDurationString(accumulatedTime));
+      }
+
+      function handleReset(force = false) {
+        if (!force && config.confirmReset && (accumulatedTime > 0 || laps.length > 0)) {
+          const confirmed = window.confirm('Reset the stopwatch and clear all current lap records?');
+          if (!confirmed) return;
+        }
+
+        stopAnimationLoop();
+        if (countdownTimerId) {
+          clearInterval(countdownTimerId);
+          countdownTimerId = null;
+          el.countdownOverlay.classList.remove('active');
+        }
+
+        timerState = STATE.IDLE;
+        accumulatedTime = 0;
+        startTime = 0;
+        lastLapOverallTime = 0;
+        laps = [];
+
+        renderDisplay(0);
+        el.splitIndicator.textContent = '';
+        renderLaps();
+        updateStatistics();
+        updateUIControls();
+        soundEffects.reset();
+        announce('Stopwatch reset to zero');
+      }
+
+      function handleRestart() {
+        handleReset(true);
+        initiateStart();
+      }
+
+      /* -------------------------------------------------------------
+         Lap Tracking & Split Measurement
+         ------------------------------------------------------------- */
+      function recordLap() {
+        if (timerState !== STATE.RUNNING) return;
+
+        const currentTotal = getCurrentElapsed();
+        const lapDuration = currentTotal - lastLapOverallTime;
+        const lapNumber = laps.length + 1;
+
+        // Calculate delta from previous lap
+        let deltaMs = 0;
+        if (laps.length > 0) {
+          const prevLap = laps[laps.length - 1];
+          deltaMs = lapDuration - prevLap.durationMs;
+        }
+
+        const newLap = {
+          id: 'lap_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+          lapNumber: lapNumber,
+          durationMs: lapDuration,
+          overallMs: currentTotal,
+          deltaMs: deltaMs,
+          timestamp: new Date().toLocaleTimeString()
+        };
+
+        laps.push(newLap);
+        lastLapOverallTime = currentTotal;
+
+        soundEffects.lap();
+        announce(`Lap ${lapNumber} recorded: ${formatDurationString(lapDuration)}`);
+
+        renderLaps();
+        updateStatistics();
+      }
+
+      function recordSplit() {
+        if (timerState !== STATE.RUNNING) return;
+        const currentTotal = getCurrentElapsed();
+        const text = `Split at ${formatDurationString(currentTotal)}`;
+        el.splitIndicator.textContent = text;
+        showToast(text);
+        soundEffects.lap();
+      }
+
+      function deleteLap(lapId) {
+        const index = laps.findIndex(l => l.id === lapId);
+        if (index === -1) return;
+
+        laps.splice(index, 1);
+
+        // Re-number remaining laps and recalculate deltas
+        for (let i = 0; i < laps.length; i++) {
+          laps[i].lapNumber = i + 1;
+          if (i === 0) {
+            laps[i].deltaMs = 0;
+          } else {
+            laps[i].deltaMs = laps[i].durationMs - laps[i - 1].durationMs;
+          }
+        }
+
+        renderLaps();
+        updateStatistics();
+        showToast('Lap removed');
+      }
+
+      function clearLaps() {
+        if (laps.length === 0) return;
+        if (config.confirmReset) {
+          if (!window.confirm('Delete all recorded laps?')) return;
+        }
+        laps = [];
+        lastLapOverallTime = getCurrentElapsed();
+        renderLaps();
+        updateStatistics();
+        showToast('All laps cleared');
+      }
+
+      /* -------------------------------------------------------------
+         Statistics Calculations
+         ------------------------------------------------------------- */
+      function computeStatistics() {
+        const totalElapsed = getCurrentElapsed();
+        const count = laps.length;
+
+        if (count === 0) {
+          return {
+            totalElapsed,
+            count: 0,
+            fastest: null,
+            slowest: null,
+            average: null,
+            median: null,
+            bestImprovement: null,
+            avgDiff: null
+          };
+        }
+
+        let fastest = laps[0];
+        let slowest = laps[0];
+        let totalDuration = 0;
+        const durations = [];
+        let bestImprovement = null; // Most negative delta
+        let totalAbsoluteDiff = 0;
+        let diffCount = 0;
+
+        for (let i = 0; i < count; i++) {
+          const lap = laps[i];
+          const dur = lap.durationMs;
+          totalDuration += dur;
+          durations.push(dur);
+
+          if (dur < fastest.durationMs) fastest = lap;
+          if (dur > slowest.durationMs) slowest = lap;
+
+          if (i > 0) {
+            const diff = lap.deltaMs;
+            if (bestImprovement === null || diff < bestImprovement) {
+              bestImprovement = diff;
+            }
+            totalAbsoluteDiff += Math.abs(diff);
+            diffCount++;
+          }
+        }
+
+        // Average
+        const average = totalDuration / count;
+
+        // Median
+        durations.sort((a, b) => a - b);
+        let median = 0;
+        const mid = Math.floor(count / 2);
+        if (count % 2 === 0) {
+          median = (durations[mid - 1] + durations[mid]) / 2;
+        } else {
+          median = durations[mid];
+        }
+
+        const avgDiff = diffCount > 0 ? (totalAbsoluteDiff / diffCount) : null;
+
+        return {
+          totalElapsed,
+          count,
+          fastest,
+          slowest,
+          average,
+          median,
+          bestImprovement,
+          avgDiff
+        };
+      }
+
+      function updateStatistics() {
+        const stats = computeStatistics();
+
+        // Strip overview
+        el.stripLapCount.textContent = stats.count;
+        el.stripFastest.textContent = stats.fastest ? formatDurationString(stats.fastest.durationMs) : '—';
+        el.stripSlowest.textContent = stats.slowest ? formatDurationString(stats.slowest.durationMs) : '—';
+        el.stripAverage.textContent = stats.average !== null ? formatDurationString(stats.average) : '—';
+
+        // Deep statistics view
+        el.statTotalElapsed.textContent = formatDurationString(stats.totalElapsed);
+        el.statLapCount.textContent = stats.count;
+        el.statFastest.textContent = stats.fastest ? formatDurationString(stats.fastest.durationMs) : '—';
+        el.statFastestLapNum.textContent = stats.fastest ? `Recorded on Lap #${stats.fastest.lapNumber}` : 'Best performance';
+        el.statSlowest.textContent = stats.slowest ? formatDurationString(stats.slowest.durationMs) : '—';
+        el.statSlowestLapNum.textContent = stats.slowest ? `Recorded on Lap #${stats.slowest.lapNumber}` : 'Maximum lap span';
+        el.statAverage.textContent = stats.average !== null ? formatDurationString(stats.average) : '—';
+        el.statMedian.textContent = stats.median !== null ? formatDurationString(stats.median) : '—';
+
+        if (stats.bestImprovement !== null && stats.bestImprovement < 0) {
+          el.statBestImprovement.textContent = `-${formatDurationString(Math.abs(stats.bestImprovement))}`;
+        } else {
+          el.statBestImprovement.textContent = '—';
+        }
+
+        el.statAvgDiff.textContent = stats.avgDiff !== null ? `±${formatDurationString(stats.avgDiff)}` : '—';
+      }
+
+      /* -------------------------------------------------------------
+         Rendering: Table and Chart
+         ------------------------------------------------------------- */
+      function getFilteredAndSortedLaps() {
+        let result = laps.slice();
+
+        // Search Filter
+        const query = el.lapSearchInput.value.trim().toLowerCase();
+        if (query) {
+          result = result.filter(l => {
+            const numMatch = String(l.lapNumber).includes(query);
+            const durMatch = formatDurationString(l.durationMs).toLowerCase().includes(query);
+            return numMatch || durMatch;
+          });
+        }
+
+        // Sorting
+        const sortMode = el.lapSortSelect.value;
+        switch (sortMode) {
+          case 'num-desc':
+            result.sort((a, b) => b.lapNumber - a.lapNumber);
+            break;
+          case 'num-asc':
+            result.sort((a, b) => a.lapNumber - b.lapNumber);
+            break;
+          case 'dur-asc':
+            result.sort((a, b) => a.durationMs - b.durationMs);
+            break;
+          case 'dur-desc':
+            result.sort((a, b) => b.durationMs - a.durationMs);
+            break;
+        }
+
+        return result;
+      }
+
+      function renderLaps() {
+        const displayList = getFilteredAndSortedLaps();
+        const stats = computeStatistics();
+
+        // Render Table
+        if (laps.length === 0) {
+          el.lapTableBody.innerHTML = '';
+          el.tableEmptyState.style.display = 'flex';
+          el.chartContent.innerHTML = '';
+          el.chartEmptyState.style.display = 'flex';
+          return;
+        }
+
+        el.tableEmptyState.style.display = 'none';
+        el.chartEmptyState.style.display = 'none';
+
+        // Build Table Rows
+        let tableHtml = '';
+        displayList.forEach(lap => {
+          const isFastest = stats.count > 1 && stats.fastest && lap.id === stats.fastest.id;
+          const isSlowest = stats.count > 1 && stats.slowest && lap.id === stats.slowest.id;
+
+          let rowClass = '';
+          let tagHtml = '';
+
+          if (isFastest) {
+            rowClass = 'row-fastest';
+            tagHtml = '<span class="lap-tag fastest">Fastest</span>';
+          } else if (isSlowest) {
+            rowClass = 'row-slowest';
+            tagHtml = '<span class="lap-tag slowest">Slowest</span>';
+          }
+
+          let deltaStr = '—';
+          if (lap.deltaMs > 0) {
+            deltaStr = `+${formatDurationString(lap.deltaMs)}`;
+          } else if (lap.deltaMs < 0) {
+            deltaStr = `-${formatDurationString(Math.abs(lap.deltaMs))}`;
+          }
+
+          tableHtml += `
+            <tr class="${rowClass}" data-lap-id="${lap.id}">
+              <td style="font-weight: 600;">#${lap.lapNumber} ${tagHtml}</td>
+              <td style="font-family: var(--font-mono); font-weight: 500;">${formatDurationString(lap.durationMs)}</td>
+              <td style="font-family: var(--font-mono); color: var(--text-muted);">${formatDurationString(lap.overallMs)}</td>
+              <td style="font-family: var(--font-mono);">${deltaStr}</td>
+              <td style="text-align: right;">
+                <button class="del-btn" data-action="delete" data-id="${lap.id}" title="Delete lap" aria-label="Delete lap ${lap.lapNumber}">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </td>
+            </tr>
+          `;
+        });
+        el.lapTableBody.innerHTML = tableHtml;
+
+        // Render Lap Bars Chart
+        const maxDuration = Math.max(...laps.map(l => l.durationMs), 1);
+        let chartHtml = '';
+        // In the chart, keep original chronological or sorted
+        displayList.forEach(lap => {
+          const isFastest = stats.count > 1 && stats.fastest && lap.id === stats.fastest.id;
+          const isSlowest = stats.count > 1 && stats.slowest && lap.id === stats.slowest.id;
+          const pct = Math.max(4, Math.round((lap.durationMs / maxDuration) * 100));
+
+          let barClass = 'chart-bar';
+          if (isFastest) barClass += ' fastest';
+          else if (isSlowest) barClass += ' slowest';
+
+          chartHtml += `
+            <div class="chart-row">
+              <span class="chart-label">Lap ${lap.lapNumber}</span>
+              <div class="chart-track">
+                <div class="${barClass}" style="width: ${pct}%;"></div>
+              </div>
+              <span class="chart-val">${formatDurationString(lap.durationMs)}</span>
+            </div>
+          `;
+        });
+        el.chartContent.innerHTML = chartHtml;
+      }
+
+      /* -------------------------------------------------------------
+         Session Management & LocalStorage
+         ------------------------------------------------------------- */
+      const STORAGE_KEYS = {
+        SETTINGS: 'stopwatch_user_settings',
+        SESSIONS: 'stopwatch_saved_sessions'
+      };
+
+      function loadSavedSettings() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            Object.assign(config, parsed);
+          }
+        } catch (e) {
+          // Fallback to defaults
+        }
+        applyConfig();
+      }
+
+      function persistSettings() {
+        try {
+          localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(config));
+        } catch (e) {
+          // Storage limits
+        }
+      }
+
+      function applyConfig() {
+        // Theme
+        if (config.theme === 'system') {
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+        } else {
+          document.documentElement.setAttribute('data-theme', config.theme);
+        }
+
+        // Accent
+        document.documentElement.setAttribute('data-accent', config.accent);
+
+        // Timer font size
+        if (config.fontSize === 'huge') {
+          document.documentElement.style.setProperty('--timer-font-size', '6.5rem');
+        } else if (config.fontSize === 'large') {
+          document.documentElement.style.setProperty('--timer-font-size', '5.75rem');
+        } else {
+          document.documentElement.style.setProperty('--timer-font-size', '5.25rem');
+        }
+
+        // Reduced Motion
+        if (config.reduceMotion) {
+          el.body.classList.add('reduce-animations');
+        } else {
+          el.body.classList.remove('reduce-animations');
+        }
+
+        // Audio controls UI
+        el.soundCheckbox.checked = config.soundEnabled;
+        el.volumeRange.value = config.soundVolume;
+        el.soundToggleBtn.classList.toggle('active', config.soundEnabled);
+
+        // Update display with new precision
+        renderDisplay(getCurrentElapsed());
+        renderLaps();
+        updateStatistics();
+
+        // Sync Modal fields
+        el.themeSelect.value = config.theme;
+        el.precisionSelect.value = config.precision;
+        el.fontSizeSelect.value = config.fontSize;
+        el.countdownSelect.value = String(config.countdown);
+        el.confirmResetCheckbox.checked = config.confirmReset;
+        el.reduceMotionCheckbox.checked = config.reduceMotion;
+
+        // Accent swatch active class
+        document.querySelectorAll('.color-swatch').forEach(sw => {
+          sw.classList.toggle('active', sw.getAttribute('data-color') === config.accent);
+        });
+      }
+
+      function getSavedSessions() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEYS.SESSIONS);
+          return raw ? JSON.parse(raw) : [];
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function saveCurrentSession(name) {
+        const total = getCurrentElapsed();
+        if (total === 0 && laps.length === 0) {
+          showToast('Cannot save empty session');
+          return;
+        }
+
+        const session = {
+          id: 'sess_' + Date.now(),
+          name: name.trim() || 'Session on ' + new Date().toLocaleDateString(),
+          date: new Date().toLocaleString(),
+          totalElapsedMs: total,
+          laps: laps.slice(),
+          stats: computeStatistics()
+        };
+
+        const sessions = getSavedSessions();
+        sessions.unshift(session);
+
+        try {
+          localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
+          showToast('Session saved successfully');
+        } catch (e) {
+          showToast('Storage full: could not save session');
+        }
+      }
+
+      function renderSavedSessions() {
+        const sessions = getSavedSessions();
+        if (sessions.length === 0) {
+          el.sessionsList.innerHTML = '';
+          el.sessionsEmptyState.style.display = 'block';
+          return;
+        }
+
+        el.sessionsEmptyState.style.display = 'none';
+        let html = '';
+
+        sessions.forEach(sess => {
+          html += `
+            <div class="session-item" data-session-id="${sess.id}">
+              <div>
+                <div class="session-meta-name">${escapeHtml(sess.name)}</div>
+                <div class="session-meta-details">${sess.date} • ${formatDurationString(sess.totalElapsedMs)} • ${sess.laps.length} laps</div>
+              </div>
+              <div class="session-actions">
+                <button class="btn btn-subtle" data-action="load-session" data-id="${sess.id}" style="font-size:0.75rem; padding:4px 8px;">Load</button>
+                <button class="btn btn-subtle" data-action="delete-session" data-id="${sess.id}" style="font-size:0.75rem; padding:4px 8px; color:var(--badge-slowest-text);">Delete</button>
+              </div>
+            </div>
+          `;
+        });
+
+        el.sessionsList.innerHTML = html;
+      }
+
+      function loadSession(sessionId) {
+        if (timerState === STATE.RUNNING) {
+          if (!window.confirm('A timer is currently active. Pause and overwrite current session?')) return;
+        }
+
+        const sessions = getSavedSessions();
+        const session = sessions.find(s => s.id === sessionId);
+        if (!session) return;
+
+        handleReset(true);
+        accumulatedTime = session.totalElapsedMs;
+        lastLapOverallTime = session.totalElapsedMs;
+        laps = session.laps.slice();
+        timerState = STATE.STOPPED;
+
+        renderDisplay(accumulatedTime);
+        renderLaps();
+        updateStatistics();
+        updateUIControls();
+
+        closeAllModals();
+        showToast(`Loaded: ${session.name}`);
+      }
+
+      function deleteSession(sessionId) {
+        let sessions = getSavedSessions();
+        sessions = sessions.filter(s => s.id !== sessionId);
+        localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
+        renderSavedSessions();
+        showToast('Session removed');
+      }
+
+      function clearAllSessions() {
+        if (!window.confirm('Delete all stored sessions permanently?')) return;
+        localStorage.removeItem(STORAGE_KEYS.SESSIONS);
+        renderSavedSessions();
+        showToast('All sessions cleared');
+      }
+
+      /* -------------------------------------------------------------
+         Export & Data Sharing
+         ------------------------------------------------------------- */
+      function exportCSV() {
+        if (laps.length === 0) {
+          showToast('No lap data to export');
+          return;
+        }
+
+        let csv = 'Lap Number,Lap Duration,Overall Time,Delta,Timestamp\r\n';
+        laps.forEach(l => {
+          csv += `"${l.lapNumber}","${formatDurationString(l.durationMs)}","${formatDurationString(l.overallMs)}","${l.deltaMs}","${l.timestamp}"\r\n`;
+        });
+
+        downloadFile(csv, `stopwatch-laps-${Date.now()}.csv`, 'text/csv;charset=utf-8;');
+        showToast('CSV export downloaded');
+      }
+
+      function exportJSON() {
+        const data = {
+          appName: 'Stopwatch',
+          exportDate: new Date().toISOString(),
+          totalElapsedMs: getCurrentElapsed(),
+          totalElapsedFormatted: formatDurationString(getCurrentElapsed()),
+          statistics: computeStatistics(),
+          laps: laps
+        };
+
+        const jsonStr = JSON.stringify(data, null, 2);
+        downloadFile(jsonStr, `stopwatch-session-${Date.now()}.json`, 'application/json');
+        showToast('JSON export downloaded');
+      }
+
+      function copySummary() {
+        const stats = computeStatistics();
+        let summary = `STOPWATCH SUMMARY\n`;
+        summary += `Total Time: ${formatDurationString(getCurrentElapsed())}\n`;
+        summary += `Total Laps: ${laps.length}\n`;
+        if (laps.length > 0) {
+          summary += `Fastest: ${formatDurationString(stats.fastest.durationMs)} (Lap #${stats.fastest.lapNumber})\n`;
+          summary += `Slowest: ${formatDurationString(stats.slowest.durationMs)} (Lap #${stats.slowest.lapNumber})\n`;
+          summary += `Average: ${formatDurationString(stats.average)}\n\n`;
+          summary += `LAPS:\n`;
+          laps.forEach(l => {
+            summary += `Lap ${l.lapNumber}: ${formatDurationString(l.durationMs)} (Split: ${formatDurationString(l.overallMs)})\n`;
+          });
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(summary).then(function() {
+            showToast('Summary copied to clipboard');
+          }).catch(function() {
+            showToast('Unable to copy to clipboard');
+          });
+        } else {
+          showToast('Clipboard access unavailable');
+        }
+      }
+
+      function downloadFile(content, fileName, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      /* -------------------------------------------------------------
+         Modal Dialog Handling
+         ------------------------------------------------------------- */
+      function openModal(modalEl) {
+        if (!modalEl) return;
+        modalEl.classList.add('open');
+        const focusable = modalEl.querySelector('button, input, select');
+        if (focusable) focusable.focus();
+      }
+
+      function closeAllModals() {
+        document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('open'));
+      }
+
+      /* -------------------------------------------------------------
+         Event Listeners & Interactions
+         ------------------------------------------------------------- */
+      // Primary controls
+      el.startPauseBtn.addEventListener('click', function() {
+        if (timerState === STATE.IDLE || timerState === STATE.STOPPED) {
+          initiateStart();
+        } else if (timerState === STATE.RUNNING) {
+          handlePause();
+        } else if (timerState === STATE.PAUSED) {
+          handleResume();
+        }
+      });
+
+      el.lapBtn.addEventListener('click', recordLap);
+      el.splitBtn.addEventListener('click', recordSplit);
+      el.stopBtn.addEventListener('click', handleStop);
+      el.resetBtn.addEventListener('click', function() { handleReset(false); });
+      el.restartBtn.addEventListener('click', handleRestart);
+      el.cancelCountdownBtn.addEventListener('click', cancelCountdown);
+
+      // Focus Mode Toggle
+      el.focusBtn.addEventListener('click', function() {
+        el.body.classList.toggle('focus-mode');
+        const isFocus = el.body.classList.contains('focus-mode');
+        el.focusBtn.classList.toggle('active', isFocus);
+        announce(isFocus ? 'Focus mode enabled' : 'Focus mode disabled');
+      });
+
+      // Fullscreen Toggle
+      el.fullscreenBtn.addEventListener('click', function() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(function() {
+            showToast('Fullscreen not supported by browser');
+          });
+        } else {
+          document.exitFullscreen().catch(function() {});
+        }
+      });
+
+      // Quick Theme toggle
+      el.themeToggleBtn.addEventListener('click', function() {
+        config.theme = (document.documentElement.getAttribute('data-theme') === 'dark') ? 'light' : 'dark';
+        applyConfig();
+        persistSettings();
+      });
+
+      // Sound Toggle
+      el.soundToggleBtn.addEventListener('click', function() {
+        config.soundEnabled = !config.soundEnabled;
+        if (config.soundEnabled) getAudioContext();
+        applyConfig();
+        persistSettings();
+        showToast(config.soundEnabled ? 'Audio enabled' : 'Audio muted');
+      });
+
+      // Tab Switcher
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          document.querySelectorAll('.tab-btn').forEach(b => {
+            b.classList.remove('active');
+            b.setAttribute('aria-selected', 'false');
+          });
+          document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+          this.classList.add('active');
+          this.setAttribute('aria-selected', 'true');
+          const targetId = this.getAttribute('data-tab');
+          const pane = document.getElementById(targetId);
+          if (pane) pane.classList.add('active');
+        });
+      });
+
+      // Filter and Search
+      el.lapSearchInput.addEventListener('input', renderLaps);
+      el.lapSortSelect.addEventListener('change', renderLaps);
+
+      // Lap Table item deletion delegation
+      el.lapTableBody.addEventListener('click', function(e) {
+        const btn = e.target.closest('button[data-action="delete"]');
+        if (btn) {
+          const id = btn.getAttribute('data-id');
+          deleteLap(id);
+        }
+      });
+
+      // Export Buttons
+      el.exportCsvBtn.addEventListener('click', exportCSV);
+      el.exportJsonBtn.addEventListener('click', exportJSON);
+      el.copySummaryBtn.addEventListener('click', copySummary);
+      el.printReportBtn.addEventListener('click', function() {
+        window.print();
+      });
+      el.clearLapsBtn.addEventListener('click', clearLaps);
+
+      // Session save dialog trigger
+      el.saveSessionBtn.addEventListener('click', function() {
+        el.sessionNameInput.value = '';
+        openModal(el.saveSessionPromptModal);
+        el.sessionNameInput.focus();
+      });
+
+      el.confirmSaveSessionBtn.addEventListener('click', function() {
+        saveCurrentSession(el.sessionNameInput.value);
+        closeAllModals();
+      });
+
+      el.savedSessionsBtn.addEventListener('click', function() {
+        renderSavedSessions();
+        openModal(el.sessionsModal);
+      });
+
+      el.sessionsList.addEventListener('click', function(e) {
+        const loadBtn = e.target.closest('button[data-action="load-session"]');
+        if (loadBtn) {
+          loadSession(loadBtn.getAttribute('data-id'));
+          return;
+        }
+        const delBtn = e.target.closest('button[data-action="delete-session"]');
+        if (delBtn) {
+          deleteSession(delBtn.getAttribute('data-id'));
+        }
+      });
+
+      el.clearAllSessionsBtn.addEventListener('click', clearAllSessions);
+
+      // Settings modal
+      el.settingsBtn.addEventListener('click', function() {
+        openModal(el.settingsModal);
+      });
+
+      el.shortcutsBtn.addEventListener('click', function() {
+        openModal(el.shortcutsModal);
+      });
+
+      // Close modal on click backdrop or close button
+      document.querySelectorAll('.modal-backdrop').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+          if (e.target === this || e.target.closest('.close-modal')) {
+            closeAllModals();
+          }
+        });
+      });
+
+      // Settings changes
+      el.themeSelect.addEventListener('change', function() {
+        config.theme = this.value;
+        applyConfig();
+        persistSettings();
+      });
+
+      el.accentColorPicker.addEventListener('click', function(e) {
+        const swatch = e.target.closest('.color-swatch');
+        if (swatch) {
+          config.accent = swatch.getAttribute('data-color');
+          applyConfig();
+          persistSettings();
+        }
+      });
+
+      el.precisionSelect.addEventListener('change', function() {
+        config.precision = this.value;
+        applyConfig();
+        persistSettings();
+      });
+
+      el.fontSizeSelect.addEventListener('change', function() {
+        config.fontSize = this.value;
+        applyConfig();
+        persistSettings();
+      });
+
+      el.countdownSelect.addEventListener('change', function() {
+        config.countdown = parseInt(this.value, 10);
+        persistSettings();
+      });
+
+      el.soundCheckbox.addEventListener('change', function() {
+        config.soundEnabled = this.checked;
+        if (config.soundEnabled) getAudioContext();
+        applyConfig();
+        persistSettings();
+      });
+
+      el.volumeRange.addEventListener('input', function() {
+        config.soundVolume = parseFloat(this.value);
+        persistSettings();
+      });
+
+      el.testSoundBtn.addEventListener('click', function() {
+        soundEffects.start();
+      });
+
+      el.confirmResetCheckbox.addEventListener('change', function() {
+        config.confirmReset = this.checked;
+        persistSettings();
+      });
+
+      el.reduceMotionCheckbox.addEventListener('change', function() {
+        config.reduceMotion = this.checked;
+        applyConfig();
+        persistSettings();
+      });
+
+      /* -------------------------------------------------------------
+         Keyboard Shortcuts
+         ------------------------------------------------------------- */
+      window.addEventListener('keydown', function(e) {
+        // Ignore shortcuts when user is focused inside input/textarea/select
+        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+        if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') {
+          if (e.key === 'Escape') {
+            document.activeElement.blur();
+          }
+          return;
+        }
+
+        switch (e.key) {
+          case ' ': // Space: Start or Pause
+            e.preventDefault();
+            if (timerState === STATE.IDLE || timerState === STATE.STOPPED) {
+              initiateStart();
+            } else if (timerState === STATE.RUNNING) {
+              handlePause();
+            } else if (timerState === STATE.PAUSED) {
+              handleResume();
+            }
+            break;
+
+          case 'l':
+          case 'L': // L: Lap
+            e.preventDefault();
+            if (timerState === STATE.RUNNING) {
+              recordLap();
+            }
+            break;
+
+          case 'r':
+          case 'R': // R: Reset
+            e.preventDefault();
+            if (timerState !== STATE.RUNNING && (accumulatedTime > 0 || laps.length > 0)) {
+              handleReset(false);
+            }
+            break;
+
+          case 'f':
+          case 'F': // F: Toggle Fullscreen
+            e.preventDefault();
+            if (!document.fullscreenElement) {
+              document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+              document.exitFullscreen().catch(() => {});
+            }
+            break;
+
+          case 'm':
+          case 'M': // M: Toggle Sound
+            e.preventDefault();
+            config.soundEnabled = !config.soundEnabled;
+            if (config.soundEnabled) getAudioContext();
+            applyConfig();
+            persistSettings();
+            showToast(config.soundEnabled ? 'Audio enabled' : 'Audio muted');
+            break;
+
+          case 'Escape': // Esc: Close panels or Exit Focus mode
+            closeAllModals();
+            if (el.body.classList.contains('focus-mode')) {
+              el.body.classList.remove('focus-mode');
+              el.focusBtn.classList.remove('active');
+            }
+            break;
+        }
+      });
+
+      /* -------------------------------------------------------------
+         Initialization
+         ------------------------------------------------------------- */
+      loadSavedSettings();
+      renderDisplay(0);
+      renderLaps();
+      updateStatistics();
+      updateUIControls();
+
+    })();
+  </script>
+</body>
+</html>
