@@ -1,0 +1,3968 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>INFINITE — Professional Online Whiteboard</title>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* ----------------------------------------------------
+       RESET & ROOT VARIABLES
+    ---------------------------------------------------- */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --bg-app: #f7f7f8;
+      --bg-panel: #ffffff;
+      --bg-panel-subtle: #fbfbfb;
+      --border-subtle: #e6e6e8;
+      --border-focus: #6965db;
+      --text-main: #252525;
+      --text-muted: #777777;
+      --text-dim: #999999;
+      --accent: #6965db;
+      --accent-hover: #5753c9;
+      --accent-subtle: #f0effc;
+      --danger: #e03131;
+      --danger-subtle: #ffe3e3;
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 10px;
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.06);
+      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+      --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.12), 0 4px 10px rgba(0, 0, 0, 0.06);
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --header-height: 52px;
+      --sidebar-width: 300px;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background-color: var(--bg-app);
+      color: var(--text-main);
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    button, input, select, textarea {
+      font-family: inherit;
+      font-size: 13px;
+      color: inherit;
+    }
+
+    button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+    }
+    button:active {
+      transform: scale(0.97);
+    }
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* ----------------------------------------------------
+       LAYOUT STRUCTURE
+    ---------------------------------------------------- */
+    #app-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ----------------------------------------------------
+       TOP NAVIGATION BAR
+    ---------------------------------------------------- */
+    #top-nav {
+      height: var(--header-height);
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 100;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .nav-section {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -0.3px;
+      color: #1a1a1a;
+      padding-right: 12px;
+      border-right: 1px solid var(--border-subtle);
+    }
+
+    .brand-logo-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .board-title-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .board-title-input {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text-main);
+      background: transparent;
+      border: 1px solid transparent;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      outline: none;
+      width: 160px;
+      text-overflow: ellipsis;
+      transition: all 0.2s;
+    }
+    .board-title-input:hover {
+      border-color: var(--border-subtle);
+      background: var(--bg-app);
+    }
+    .board-title-input:focus {
+      border-color: var(--accent);
+      background: #fff;
+      width: 220px;
+    }
+
+    .save-indicator {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+    .save-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      transition: background-color 0.3s;
+    }
+    .save-dot.saving {
+      background: #f59e0b;
+      animation: pulse 1s infinite alternate;
+    }
+    @keyframes pulse {
+      from { opacity: 0.4; }
+      to { opacity: 1; }
+    }
+
+    /* Top center viewport controls */
+    .viewport-controls {
+      display: flex;
+      align-items: center;
+      background: var(--bg-app);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .nav-btn {
+      width: 32px;
+      height: 30px;
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+    }
+    .nav-btn:hover {
+      background: rgba(0, 0, 0, 0.05);
+      color: #000;
+    }
+
+    .zoom-level-btn {
+      padding: 0 8px;
+      height: 30px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
+      border-radius: var(--radius-sm);
+    }
+    .zoom-level-btn:hover {
+      background: rgba(0, 0, 0, 0.05);
+    }
+
+    .nav-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border-subtle);
+      margin: 0 4px;
+    }
+
+    /* Actions right */
+    .btn-secondary {
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid var(--border-subtle);
+      background: #ffffff;
+      border-radius: var(--radius-md);
+      font-weight: 500;
+      color: var(--text-main);
+      gap: 6px;
+    }
+    .btn-secondary:hover {
+      background: var(--bg-app);
+      border-color: #d8d8dc;
+    }
+
+    .btn-primary {
+      height: 32px;
+      padding: 0 14px;
+      background: var(--accent);
+      color: #ffffff;
+      border-radius: var(--radius-md);
+      font-weight: 500;
+      gap: 6px;
+      box-shadow: 0 1px 2px rgba(105, 101, 219, 0.3);
+    }
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .user-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #eceffd;
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border-subtle);
+      margin-left: 6px;
+    }
+
+    /* ----------------------------------------------------
+       LEFT FLOATING TOOLBAR
+    ---------------------------------------------------- */
+    #left-toolbar {
+      position: absolute;
+      top: 72px;
+      left: 16px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 6px;
+      box-shadow: var(--shadow-md);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 90;
+    }
+
+    .tool-btn {
+      position: relative;
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tool-btn:hover {
+      background: var(--bg-app);
+      color: #000;
+    }
+    .tool-btn.active {
+      background: var(--accent-subtle);
+      color: var(--accent);
+    }
+
+    .tool-btn svg {
+      width: 19px;
+      height: 19px;
+      stroke-width: 2;
+    }
+
+    .tool-divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 4px 2px;
+    }
+
+    /* Tooltip */
+    [data-tooltip] {
+      position: relative;
+    }
+    [data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: calc(100% + 10px);
+      top: 50%;
+      transform: translateY(-50%);
+      background: #1c1c1f;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 5px 8px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease;
+      z-index: 1000;
+      box-shadow: var(--shadow-sm);
+    }
+    [data-tooltip]:hover::after {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* ----------------------------------------------------
+       MAIN CANVAS CONTAINER
+    ---------------------------------------------------- */
+    #canvas-viewport {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      cursor: default;
+      background-color: #ffffff;
+    }
+    #canvas-viewport.panning {
+      cursor: grab !important;
+    }
+    #canvas-viewport.is-panning {
+      cursor: grabbing !important;
+    }
+    #canvas-viewport.crosshair {
+      cursor: crosshair !important;
+    }
+    #canvas-viewport.text-cursor {
+      cursor: text !important;
+    }
+    #canvas-viewport.eraser-cursor {
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="%23e03131" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg>') 10 10, crosshair !important;
+    }
+
+    #main-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Overlay In-Place Text Editor */
+    #canvas-text-editor {
+      position: absolute;
+      display: none;
+      background: transparent;
+      border: 1.5px dashed var(--accent);
+      padding: 4px 6px;
+      font-family: inherit;
+      line-height: 1.25;
+      outline: none;
+      resize: none;
+      overflow: hidden;
+      z-index: 80;
+      white-space: pre-wrap;
+      word-break: break-word;
+      transform-origin: 0 0;
+      box-shadow: 0 2px 10px rgba(105, 101, 219, 0.15);
+    }
+
+    /* ----------------------------------------------------
+       RIGHT PROPERTIES & LAYERS PANEL
+    ---------------------------------------------------- */
+    #right-panel {
+      position: absolute;
+      top: 72px;
+      right: 16px;
+      width: var(--sidebar-width);
+      max-height: calc(100vh - 90px);
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      display: flex;
+      flex-direction: column;
+      z-index: 90;
+      overflow: hidden;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s;
+    }
+    #right-panel.collapsed {
+      transform: translateX(calc(100% + 24px));
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    .panel-header {
+      display: flex;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-panel-subtle);
+      padding: 4px;
+    }
+
+    .panel-tab-btn {
+      flex: 1;
+      height: 32px;
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-radius: var(--radius-sm);
+      gap: 6px;
+    }
+    .panel-tab-btn.active {
+      background: #ffffff;
+      color: var(--text-main);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .panel-body {
+      padding: 16px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Collapsible Right Panel Toggle Button */
+    #toggle-right-panel-btn {
+      position: absolute;
+      top: 72px;
+      right: 16px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-md);
+      z-index: 89;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Section components */
+    .prop-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .prop-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+
+    .prop-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .prop-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .prop-grid-4 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 6px;
+    }
+
+    .input-with-label {
+      display: flex;
+      align-items: center;
+      background: var(--bg-app);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0 8px;
+      height: 30px;
+    }
+    .input-with-label span {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-weight: 600;
+      width: 14px;
+    }
+    .input-with-label input {
+      width: 100%;
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 12px;
+      color: var(--text-main);
+      text-align: right;
+    }
+
+    .prop-select {
+      height: 30px;
+      width: 100%;
+      background: var(--bg-app);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0 8px;
+      outline: none;
+      font-size: 12px;
+    }
+
+    /* Swatches */
+    .color-swatches {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .color-swatch-btn {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(0, 0, 0, 0.1);
+      cursor: pointer;
+      padding: 0;
+      transition: transform 0.1s, border-color 0.1s;
+    }
+    .color-swatch-btn:hover {
+      transform: scale(1.15);
+    }
+    .color-swatch-btn.active {
+      border: 2px solid var(--accent);
+      box-shadow: 0 0 0 1px #fff inset;
+    }
+
+    .color-picker-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+    .color-preview-box {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+      overflow: hidden;
+      position: relative;
+    }
+    .color-preview-box input[type="color"] {
+      position: absolute;
+      left: -10px;
+      top: -10px;
+      width: 48px;
+      height: 48px;
+      cursor: pointer;
+      opacity: 0;
+    }
+
+    /* Range slider */
+    .prop-slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+    .prop-slider-wrap input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent);
+      height: 4px;
+    }
+    .prop-slider-value {
+      width: 36px;
+      text-align: right;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Alignment & arrange buttons */
+    .btn-group {
+      display: flex;
+      background: var(--bg-app);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .btn-group button {
+      flex: 1;
+      height: 28px;
+      border-right: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+    }
+    .btn-group button:last-child {
+      border-right: none;
+    }
+    .btn-group button:hover {
+      background: rgba(0, 0, 0, 0.05);
+      color: var(--text-main);
+    }
+    .btn-group button.active {
+      background: var(--accent-subtle);
+      color: var(--accent);
+    }
+
+    /* Layers List */
+    #layers-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow-y: auto;
+      max-height: 420px;
+    }
+    .layer-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px;
+      background: var(--bg-app);
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .layer-item:hover {
+      background: #f0f0f2;
+    }
+    .layer-item.active {
+      background: var(--accent-subtle);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .layer-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+    .layer-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .layer-action-btn {
+      width: 22px;
+      height: 22px;
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+    }
+    .layer-action-btn:hover {
+      background: rgba(0, 0, 0, 0.08);
+      color: var(--text-main);
+    }
+
+    /* ----------------------------------------------------
+       BOTTOM STATUS / HINT BAR
+    ---------------------------------------------------- */
+    #status-bar {
+      position: absolute;
+      bottom: 12px;
+      left: 16px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 4px 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: var(--shadow-sm);
+      z-index: 85;
+      pointer-events: none;
+    }
+    #status-bar kbd {
+      background: var(--bg-app);
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      padding: 1px 4px;
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    /* ----------------------------------------------------
+       CONTEXT MENU
+    ---------------------------------------------------- */
+    #context-menu {
+      position: fixed;
+      display: none;
+      min-width: 180px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 4px;
+      box-shadow: var(--shadow-lg);
+      z-index: 1000;
+    }
+    .ctx-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      height: 30px;
+      padding: 0 10px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      color: var(--text-main);
+      text-align: left;
+    }
+    .ctx-item:hover {
+      background: var(--bg-app);
+      color: #000;
+    }
+    .ctx-item.danger:hover {
+      background: var(--danger-subtle);
+      color: var(--danger);
+    }
+    .ctx-shortcut {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+    .ctx-separator {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 4px 0;
+    }
+
+    /* ----------------------------------------------------
+       MODALS (EXPORT, SHORTCUTS, CLEAR CONFIRM)
+    ---------------------------------------------------- */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(2px);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      width: 440px;
+      max-width: 90vw;
+      overflow: hidden;
+      animation: modalPop 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes modalPop {
+      from { transform: scale(0.96); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-header h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .modal-close-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      color: var(--text-dim);
+    }
+    .modal-close-btn:hover {
+      background: var(--bg-app);
+      color: var(--text-main);
+    }
+
+    .modal-body {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .modal-footer {
+      padding: 12px 20px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-panel-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .shortcuts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 16px;
+      font-size: 12px;
+    }
+    .shortcut-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid #f0f0f2;
+    }
+    .shortcut-row kbd {
+      background: var(--bg-app);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    /* ----------------------------------------------------
+       RESPONSIVE ADJUSTMENTS
+    ---------------------------------------------------- */
+    @media (max-width: 860px) {
+      #left-toolbar {
+        top: auto;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        flex-direction: row;
+        border-radius: 30px;
+        padding: 4px 8px;
+      }
+      .tool-divider {
+        width: 1px;
+        height: auto;
+        margin: 2px 4px;
+      }
+      [data-tooltip]::after {
+        display: none;
+      }
+      #status-bar {
+        display: none;
+      }
+      #toggle-right-panel-btn {
+        display: flex;
+      }
+      #right-panel {
+        top: 60px;
+        right: 12px;
+        width: 280px;
+      }
+      .board-title-input {
+        width: 110px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div id="app-container">
+  <!-- TOP BAR -->
+  <header id="top-nav">
+    <div class="nav-section">
+      <div class="brand">
+        <div class="brand-logo-icon">
+          <i data-lucide="infinity" style="width: 18px; height: 18px;"></i>
+        </div>
+        <span>INFINITE</span>
+      </div>
+
+      <div class="board-title-wrapper">
+        <input type="text" id="board-title-input" class="board-title-input" value="Untitled Board" spellcheck="false" title="Click to rename board">
+        <div class="save-indicator">
+          <div class="save-dot" id="save-dot"></div>
+          <span id="save-text">Saved</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center Viewport & History Controls -->
+    <div class="nav-section">
+      <div class="viewport-controls">
+        <button id="btn-undo" class="nav-btn" data-tooltip="Undo (Ctrl+Z)" title="Undo">
+          <i data-lucide="undo-2" style="width:16px; height:16px;"></i>
+        </button>
+        <button id="btn-redo" class="nav-btn" data-tooltip="Redo (Ctrl+Y)" title="Redo">
+          <i data-lucide="redo-2" style="width:16px; height:16px;"></i>
+        </button>
+        <div class="nav-divider"></div>
+        <button id="btn-zoom-out" class="nav-btn" data-tooltip="Zoom Out (-)" title="Zoom Out">
+          <i data-lucide="minus" style="width:16px; height:16px;"></i>
+        </button>
+        <button id="btn-zoom-reset" class="zoom-level-btn" data-tooltip="Reset Zoom (Shift+0)" title="Reset to 100%">
+          <span id="zoom-percentage">100%</span>
+        </button>
+        <button id="btn-zoom-in" class="nav-btn" data-tooltip="Zoom In (+)" title="Zoom In">
+          <i data-lucide="plus" style="width:16px; height:16px;"></i>
+        </button>
+        <div class="nav-divider"></div>
+        <button id="btn-fit-screen" class="nav-btn" data-tooltip="Fit to Content (Shift+1)" title="Fit to Screen">
+          <i data-lucide="maximize" style="width:16px; height:16px;"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Utility Buttons -->
+    <div class="nav-section">
+      <button id="btn-shortcuts-modal" class="btn-secondary" title="Keyboard Shortcuts">
+        <i data-lucide="command" style="width:15px; height:15px;"></i>
+        <span>Shortcuts</span>
+      </button>
+
+      <button id="btn-export-dialog" class="btn-primary">
+        <i data-lucide="download" style="width:15px; height:15px;"></i>
+        <span>Export</span>
+      </button>
+
+      <button id="btn-project-menu" class="btn-secondary" title="Project Options">
+        <i data-lucide="folder" style="width:15px; height:15px;"></i>
+      </button>
+
+      <div class="user-avatar" title="Infinite User">U</div>
+    </div>
+  </header>
+
+  <!-- MAIN CANVAS AREA -->
+  <div id="canvas-viewport">
+    <canvas id="main-canvas"></canvas>
+    <!-- Hidden Inline Textarea for typing canvas text -->
+    <textarea id="canvas-text-editor" spellcheck="false"></textarea>
+  </div>
+
+  <!-- FLOATING LEFT TOOLBAR -->
+  <aside id="left-toolbar">
+    <button class="tool-btn active" data-tool="select" data-tooltip="Select (V)">
+      <i data-lucide="mouse-pointer"></i>
+    </button>
+    <button class="tool-btn" data-tool="hand" data-tooltip="Hand / Pan (H)">
+      <i data-lucide="hand"></i>
+    </button>
+    <div class="tool-divider"></div>
+    <button class="tool-btn" data-tool="pencil" data-tooltip="Pencil / Draw (P)">
+      <i data-lucide="pencil"></i>
+    </button>
+    <button class="tool-btn" data-tool="highlighter" data-tooltip="Highlighter">
+      <i data-lucide="highlighter"></i>
+    </button>
+    <button class="tool-btn" data-tool="eraser" data-tooltip="Eraser (E)">
+      <i data-lucide="eraser"></i>
+    </button>
+    <div class="tool-divider"></div>
+    <button class="tool-btn" data-tool="rect" data-tooltip="Rectangle (R)">
+      <i data-lucide="square"></i>
+    </button>
+    <button class="tool-btn" data-tool="circle" data-tooltip="Circle (O)">
+      <i data-lucide="circle"></i>
+    </button>
+    <button class="tool-btn" data-tool="triangle" data-tooltip="Triangle">
+      <i data-lucide="triangle"></i>
+    </button>
+    <button class="tool-btn" data-tool="line" data-tooltip="Line (L)">
+      <i data-lucide="minus"></i>
+    </button>
+    <button class="tool-btn" data-tool="arrow" data-tooltip="Arrow (A)">
+      <i data-lucide="arrow-up-right"></i>
+    </button>
+    <div class="tool-divider"></div>
+    <button class="tool-btn" data-tool="text" data-tooltip="Text (T)">
+      <i data-lucide="type"></i>
+    </button>
+    <button class="tool-btn" data-tool="sticky" data-tooltip="Sticky Note (N)">
+      <i data-lucide="sticky-note"></i>
+    </button>
+    <button class="tool-btn" id="btn-insert-image" data-tooltip="Insert Image">
+      <i data-lucide="image"></i>
+    </button>
+    <input type="file" id="image-file-input" accept="image/*" style="display:none;">
+  </aside>
+
+  <!-- COLLAPSIBLE RIGHT PANEL TOGGLE (Mobile / Compact) -->
+  <button id="toggle-right-panel-btn" title="Toggle Inspector">
+    <i data-lucide="sliders-horizontal" style="width:18px; height:18px;"></i>
+  </button>
+
+  <!-- RIGHT PROPERTIES & LAYERS PANEL -->
+  <aside id="right-panel">
+    <div class="panel-header">
+      <button class="panel-tab-btn active" id="tab-btn-properties">
+        <i data-lucide="sliders" style="width:14px; height:14px;"></i> Properties
+      </button>
+      <button class="panel-tab-btn" id="tab-btn-layers">
+        <i data-lucide="layers" style="width:14px; height:14px;"></i> Layers
+      </button>
+    </div>
+
+    <!-- PROPERTIES TAB CONTENT -->
+    <div class="panel-body" id="tab-content-properties">
+      <!-- Contextual Object Properties: shown when 1 or more items selected -->
+      <div id="selection-properties-container">
+        <!-- Transform -->
+        <div class="prop-section">
+          <div class="prop-title">Transform</div>
+          <div class="prop-grid-2">
+            <div class="input-with-label"><span>X</span><input type="number" id="prop-x" step="1"></div>
+            <div class="input-with-label"><span>Y</span><input type="number" id="prop-y" step="1"></div>
+          </div>
+          <div class="prop-grid-2">
+            <div class="input-with-label"><span>W</span><input type="number" id="prop-w" min="1" step="1"></div>
+            <div class="input-with-label"><span>H</span><input type="number" id="prop-h" min="1" step="1"></div>
+          </div>
+          <div class="prop-row">
+            <span style="font-size:12px; color:var(--text-muted);">Rotation</span>
+            <div class="input-with-label" style="width:100px;">
+              <span>°</span><input type="number" id="prop-rotation" min="-360" max="360" step="1">
+            </div>
+          </div>
+        </div>
+
+        <!-- Appearance (Fill & Stroke) -->
+        <div class="prop-section" id="appearance-section">
+          <div class="prop-title">Appearance</div>
+
+          <!-- Fill -->
+          <div class="prop-row" id="fill-row">
+            <span style="font-size:12px;">Fill</span>
+            <div class="color-picker-input-wrap" style="width:auto;">
+              <div class="color-preview-box" id="fill-preview-box">
+                <input type="color" id="prop-fill-color">
+              </div>
+              <button id="btn-fill-transparent" class="btn-secondary" style="height:28px; padding:0 8px; font-size:11px;">None</button>
+            </div>
+          </div>
+          <div class="color-swatches" id="fill-swatches">
+            <button class="color-swatch-btn" style="background:#ffffff;" data-color="#ffffff"></button>
+            <button class="color-swatch-btn" style="background:#f8f9fa;" data-color="#f8f9fa"></button>
+            <button class="color-swatch-btn" style="background:#fee2e2;" data-color="#fee2e2"></button>
+            <button class="color-swatch-btn" style="background:#fef3c7;" data-color="#fef3c7"></button>
+            <button class="color-swatch-btn" style="background:#dcfce7;" data-color="#dcfce7"></button>
+            <button class="color-swatch-btn" style="background:#e0e7ff;" data-color="#e0e7ff"></button>
+            <button class="color-swatch-btn" style="background:#f3e8ff;" data-color="#f3e8ff"></button>
+            <button class="color-swatch-btn" style="background:#1f2937;" data-color="#1f2937"></button>
+          </div>
+
+          <!-- Stroke -->
+          <div class="prop-row" style="margin-top:6px;">
+            <span style="font-size:12px;">Stroke</span>
+            <div class="color-picker-input-wrap" style="width:auto;">
+              <div class="color-preview-box" id="stroke-preview-box">
+                <input type="color" id="prop-stroke-color">
+              </div>
+            </div>
+          </div>
+          <div class="color-swatches" id="stroke-swatches">
+            <button class="color-swatch-btn" style="background:#1e1e1e;" data-color="#1e1e1e"></button>
+            <button class="color-swatch-btn" style="background:#6965db;" data-color="#6965db"></button>
+            <button class="color-swatch-btn" style="background:#ef4444;" data-color="#ef4444"></button>
+            <button class="color-swatch-btn" style="background:#f59e0b;" data-color="#f59e0b"></button>
+            <button class="color-swatch-btn" style="background:#10b981;" data-color="#10b981"></button>
+            <button class="color-swatch-btn" style="background:#3b82f6;" data-color="#3b82f6"></button>
+            <button class="color-swatch-btn" style="background:#8b5cf6;" data-color="#8b5cf6"></button>
+            <button class="color-swatch-btn" style="background:#9ca3af;" data-color="#9ca3af"></button>
+          </div>
+
+          <!-- Stroke Width -->
+          <div class="prop-row" style="margin-top:6px;">
+            <span style="font-size:12px; color:var(--text-muted);">Thickness</span>
+            <div class="prop-slider-wrap" style="width:140px;">
+              <input type="range" id="prop-stroke-width" min="1" max="24" value="2">
+              <span class="prop-slider-value" id="val-stroke-width">2px</span>
+            </div>
+          </div>
+
+          <!-- Opacity -->
+          <div class="prop-row">
+            <span style="font-size:12px; color:var(--text-muted);">Opacity</span>
+            <div class="prop-slider-wrap" style="width:140px;">
+              <input type="range" id="prop-opacity" min="5" max="100" value="100">
+              <span class="prop-slider-value" id="val-opacity">100%</span>
+            </div>
+          </div>
+
+          <!-- Corner Radius (rect only) -->
+          <div class="prop-row" id="corner-radius-row">
+            <span style="font-size:12px; color:var(--text-muted);">Rounded</span>
+            <div class="input-with-label" style="width:90px;">
+              <span>R</span><input type="number" id="prop-corner-radius" min="0" max="80" step="1" value="0">
+            </div>
+          </div>
+        </div>
+
+        <!-- Typography Section (Text & Sticky) -->
+        <div class="prop-section" id="typography-section">
+          <div class="prop-title">Typography</div>
+          <div class="prop-row">
+            <span style="font-size:12px; color:var(--text-muted);">Size</span>
+            <div class="input-with-label" style="width:90px;">
+              <span>P</span><input type="number" id="prop-font-size" min="8" max="120" step="1" value="16">
+            </div>
+          </div>
+          <div class="prop-row">
+            <div class="btn-group" style="width:100%;">
+              <button id="btn-text-align-left" title="Align Left"><i data-lucide="align-left" style="width:14px; height:14px;"></i></button>
+              <button id="btn-text-align-center" title="Align Center"><i data-lucide="align-center" style="width:14px; height:14px;"></i></button>
+              <button id="btn-text-align-right" title="Align Right"><i data-lucide="align-right" style="width:14px; height:14px;"></i></button>
+              <button id="btn-text-bold" title="Bold"><b>B</b></button>
+              <button id="btn-text-italic" title="Italic"><i>I</i></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alignment / Arrange -->
+        <div class="prop-section">
+          <div class="prop-title">Align & Arrange</div>
+          <div class="btn-group" style="margin-bottom:6px;">
+            <button id="btn-align-left" title="Align Left"><i data-lucide="align-horizontal-justify-start" style="width:14px; height:14px;"></i></button>
+            <button id="btn-align-center" title="Align Center"><i data-lucide="align-horizontal-justify-center" style="width:14px; height:14px;"></i></button>
+            <button id="btn-align-right" title="Align Right"><i data-lucide="align-horizontal-justify-end" style="width:14px; height:14px;"></i></button>
+            <button id="btn-align-top" title="Align Top"><i data-lucide="align-vertical-justify-start" style="width:14px; height:14px;"></i></button>
+            <button id="btn-align-middle" title="Align Middle"><i data-lucide="align-vertical-justify-center" style="width:14px; height:14px;"></i></button>
+            <button id="btn-align-bottom" title="Align Bottom"><i data-lucide="align-vertical-justify-end" style="width:14px; height:14px;"></i></button>
+          </div>
+          <div class="prop-grid-2">
+            <button id="btn-bring-front" class="btn-secondary" style="font-size:11px;">Bring Front</button>
+            <button id="btn-send-back" class="btn-secondary" style="font-size:11px;">Send Back</button>
+          </div>
+          <div class="prop-grid-2" style="margin-top:6px;">
+            <button id="btn-duplicate-selected" class="btn-secondary" style="font-size:11px;">Duplicate</button>
+            <button id="btn-delete-selected" class="btn-secondary" style="font-size:11px; color:var(--danger);">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Canvas Settings: shown when NOTHING is selected -->
+      <div id="canvas-settings-container">
+        <div class="prop-section">
+          <div class="prop-title">Canvas Settings</div>
+
+          <div class="prop-row">
+            <span style="font-size:12px;">Background</span>
+            <div class="color-picker-input-wrap" style="width:auto;">
+              <div class="color-preview-box" id="canvas-bg-preview">
+                <input type="color" id="prop-canvas-bg" value="#ffffff">
+              </div>
+            </div>
+          </div>
+          <div class="color-swatches" id="canvas-bg-swatches">
+            <button class="color-swatch-btn" style="background:#ffffff;" data-color="#ffffff" title="Pure White"></button>
+            <button class="color-swatch-btn" style="background:#f8f9fa;" data-color="#f8f9fa" title="Off-White"></button>
+            <button class="color-swatch-btn" style="background:#f1f3f5;" data-color="#f1f3f5" title="Subtle Gray"></button>
+            <button class="color-swatch-btn" style="background:#e9ecef;" data-color="#e9ecef" title="Muted Gray"></button>
+            <button class="color-swatch-btn" style="background:#1e1e24;" data-color="#1e1e24" title="Dark Slate"></button>
+          </div>
+
+          <div class="prop-row" style="margin-top:8px;">
+            <span style="font-size:12px;">Grid Style</span>
+            <select id="prop-grid-type" class="prop-select" style="width:130px;">
+              <option value="dots">Dot Grid</option>
+              <option value="lines">Lines</option>
+              <option value="none">None</option>
+            </select>
+          </div>
+
+          <div class="prop-row" style="margin-top:8px;">
+            <label style="font-size:12px; display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" id="prop-snap-grid" style="accent-color:var(--accent);">
+              Snap to Grid (20px)
+            </label>
+          </div>
+        </div>
+
+        <div class="prop-section">
+          <div class="prop-title">Document Stats</div>
+          <div class="prop-row">
+            <span style="font-size:12px; color:var(--text-muted);">Total Objects</span>
+            <span style="font-size:12px; font-weight:600;" id="stats-total-objects">0</span>
+          </div>
+          <div class="prop-row">
+            <span style="font-size:12px; color:var(--text-muted);">Canvas Zoom</span>
+            <span style="font-size:12px; font-weight:600;" id="stats-zoom-level">100%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LAYERS TAB CONTENT -->
+    <div class="panel-body" id="tab-content-layers" style="display:none;">
+      <div class="prop-section" style="flex:1;">
+        <div class="prop-title" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>Layers (Top to Bottom)</span>
+          <span style="font-size:10px; color:var(--text-dim);" id="layers-count">0 items</span>
+        </div>
+        <div id="layers-list">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- BOTTOM STATUS HINT -->
+  <div id="status-bar">
+    <span><kbd>Space</kbd> + Drag to Pan</span>
+    <span><kbd>Wheel</kbd> to Zoom</span>
+    <span><kbd>Ctrl+Z</kbd> Undo</span>
+    <span><kbd>Del</kbd> Delete</span>
+    <span id="coord-display">X: 0, Y: 0</span>
+  </div>
+
+  <!-- CONTEXT MENU -->
+  <div id="context-menu">
+    <button class="ctx-item" id="ctx-cut"><span>Cut</span><span class="ctx-shortcut">Ctrl+X</span></button>
+    <button class="ctx-item" id="ctx-copy"><span>Copy</span><span class="ctx-shortcut">Ctrl+C</span></button>
+    <button class="ctx-item" id="ctx-paste"><span>Paste</span><span class="ctx-shortcut">Ctrl+V</span></button>
+    <button class="ctx-item" id="ctx-duplicate"><span>Duplicate</span><span class="ctx-shortcut">Ctrl+D</span></button>
+    <div class="ctx-separator"></div>
+    <button class="ctx-item" id="ctx-bring-front"><span>Bring to Front</span><span class="ctx-shortcut">]</span></button>
+    <button class="ctx-item" id="ctx-send-back"><span>Send to Back</span><span class="ctx-shortcut">[</span></button>
+    <div class="ctx-separator"></div>
+    <button class="ctx-item danger" id="ctx-delete"><span>Delete</span><span class="ctx-shortcut">Del</span></button>
+  </div>
+
+  <!-- EXPORT MODAL -->
+  <div class="modal-backdrop" id="modal-export">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Export Canvas</h3>
+        <button class="modal-close-btn" data-close-modal><i data-lucide="x" style="width:16px; height:16px;"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="prop-section">
+          <label style="font-size:12px; font-weight:600; margin-bottom:4px;">Export Area</label>
+          <select id="export-area-select" class="prop-select">
+            <option value="all">Entire Board Content</option>
+            <option value="selection">Selected Objects Only</option>
+            <option value="viewport">Current Viewport</option>
+          </select>
+        </div>
+        <div class="prop-section">
+          <label style="font-size:12px; font-weight:600; margin-bottom:4px;">Resolution Scale</label>
+          <div class="btn-group">
+            <button class="active" data-export-scale="1">1x Standard</button>
+            <button data-export-scale="2">2x Crisp (Retina)</button>
+            <button data-export-scale="3">3x High-Res</button>
+          </div>
+        </div>
+        <div class="prop-section">
+          <label style="font-size:12px; display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="export-transparent-bg" style="accent-color:var(--accent);">
+            Transparent background (PNG)
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close-modal>Cancel</button>
+        <button class="btn-primary" id="btn-confirm-export">Download PNG</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROJECT & FILE MODAL -->
+  <div class="modal-backdrop" id="modal-project">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Board & Project Settings</h3>
+        <button class="modal-close-btn" data-close-modal><i data-lucide="x" style="width:16px; height:16px;"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="prop-section">
+          <button id="btn-download-json" class="btn-secondary" style="height:36px; justify-content:flex-start; padding:0 12px; gap:10px;">
+            <i data-lucide="file-down" style="width:16px; height:16px;"></i>
+            <span>Export Project JSON file (.infinite)</span>
+          </button>
+          <button id="btn-trigger-json-upload" class="btn-secondary" style="height:36px; justify-content:flex-start; padding:0 12px; gap:10px; margin-top:8px;">
+            <i data-lucide="file-up" style="width:16px; height:16px;"></i>
+            <span>Import Project JSON file</span>
+          </button>
+          <input type="file" id="json-file-input" accept=".json,.infinite" style="display:none;">
+        </div>
+        <div class="ctx-separator"></div>
+        <div class="prop-section">
+          <button id="btn-clear-canvas" class="btn-secondary" style="height:36px; justify-content:flex-start; padding:0 12px; gap:10px; color:var(--danger);">
+            <i data-lucide="trash-2" style="width:16px; height:16px;"></i>
+            <span>Clear Entire Canvas</span>
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close-modal>Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KEYBOARD SHORTCUTS MODAL -->
+  <div class="modal-backdrop" id="modal-shortcuts">
+    <div class="modal-card" style="width:500px;">
+      <div class="modal-header">
+        <h3>Keyboard Shortcuts</h3>
+        <button class="modal-close-btn" data-close-modal><i data-lucide="x" style="width:16px; height:16px;"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="shortcuts-grid">
+          <div class="shortcut-row"><span>Select Tool</span><kbd>V</kbd></div>
+          <div class="shortcut-row"><span>Hand / Pan</span><kbd>H</kbd></div>
+          <div class="shortcut-row"><span>Draw / Pencil</span><kbd>P</kbd></div>
+          <div class="shortcut-row"><span>Eraser</span><kbd>E</kbd></div>
+          <div class="shortcut-row"><span>Rectangle</span><kbd>R</kbd></div>
+          <div class="shortcut-row"><span>Circle</span><kbd>O</kbd></div>
+          <div class="shortcut-row"><span>Line</span><kbd>L</kbd></div>
+          <div class="shortcut-row"><span>Arrow</span><kbd>A</kbd></div>
+          <div class="shortcut-row"><span>Text Tool</span><kbd>T</kbd></div>
+          <div class="shortcut-row"><span>Sticky Note</span><kbd>N</kbd></div>
+          <div class="shortcut-row"><span>Undo</span><kbd>Ctrl + Z</kbd></div>
+          <div class="shortcut-row"><span>Redo</span><kbd>Ctrl + Y</kbd></div>
+          <div class="shortcut-row"><span>Copy</span><kbd>Ctrl + C</kbd></div>
+          <div class="shortcut-row"><span>Paste</span><kbd>Ctrl + V</kbd></div>
+          <div class="shortcut-row"><span>Duplicate</span><kbd>Ctrl + D</kbd></div>
+          <div class="shortcut-row"><span>Delete Selected</span><kbd>Del / Backspace</kbd></div>
+          <div class="shortcut-row"><span>Select All</span><kbd>Ctrl + A</kbd></div>
+          <div class="shortcut-row"><span>Deselect</span><kbd>Esc</kbd></div>
+          <div class="shortcut-row"><span>Temporary Pan</span><kbd>Space + Drag</kbd></div>
+          <div class="shortcut-row"><span>Constrain Shape</span><kbd>Shift + Drag</kbd></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close-modal>Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================
+     APPLICATION LOGIC
+==================================================== -->
+<script>
+(function() {
+  'use strict';
+
+  // ----------------------------------------------------
+  // DATA MODEL & STATE
+  // ----------------------------------------------------
+  const STORAGE_KEY = 'infinite_whiteboard_project_v1';
+
+  const state = {
+    title: 'Untitled Board',
+    viewport: {
+      x: 0,
+      y: 0,
+      zoom: 1.0
+    },
+    canvasBg: '#ffffff',
+    gridType: 'dots', // 'dots' | 'lines' | 'none'
+    snapToGrid: false,
+    gridSize: 20,
+
+    activeTool: 'select', // 'select' | 'hand' | 'pencil' | 'highlighter' | 'eraser' | 'rect' | 'circle' | 'triangle' | 'line' | 'arrow' | 'text' | 'sticky'
+    currentStrokeColor: '#1e1e1e',
+    currentFillColor: 'transparent',
+    currentStrokeWidth: 2,
+    currentOpacity: 1.0,
+    currentFontSize: 18,
+
+    objects: [], // Array of whiteboard objects
+    selectedIds: new Set(),
+
+    // Tool interaction state
+    isInteracting: false,
+    interactionType: null, // 'pan' | 'draw' | 'create_shape' | 'move' | 'resize' | 'rotate' | 'box_select' | 'erase'
+    activeHandle: null,    // 'tl', 'tr', 'br', 'bl', 't', 'r', 'b', 'l', 'rot'
+    dragStart: { x: 0, y: 0 },
+    initialObjectsState: null,
+    pointerScreen: { x: 0, y: 0 },
+    pointerWorld: { x: 0, y: 0 },
+
+    // Selection box for marquee select
+    selectionBox: null,
+
+    // Temp drawing / creation object
+    tempObject: null,
+
+    // Clipboard
+    clipboard: []
+  };
+
+  // Undo / Redo Stacks
+  const history = {
+    undoStack: [],
+    redoStack: [],
+    maxSize: 40
+  };
+
+  // ----------------------------------------------------
+  // DOM ELEMENT REFERENCES
+  // ----------------------------------------------------
+  const canvasViewport = document.getElementById('canvas-viewport');
+  const canvas = document.getElementById('main-canvas');
+  const ctx = canvas.getContext('2d');
+  const canvasTextEditor = document.getElementById('canvas-text-editor');
+
+  const boardTitleInput = document.getElementById('board-title-input');
+  const saveDot = document.getElementById('save-dot');
+  const saveText = document.getElementById('save-text');
+
+  const btnUndo = document.getElementById('btn-undo');
+  const btnRedo = document.getElementById('btn-redo');
+  const btnZoomOut = document.getElementById('btn-zoom-out');
+  const btnZoomIn = document.getElementById('btn-zoom-in');
+  const btnZoomReset = document.getElementById('btn-zoom-reset');
+  const btnFitScreen = document.getElementById('btn-fit-screen');
+  const zoomPercentageText = document.getElementById('zoom-percentage');
+
+  const leftToolbar = document.getElementById('left-toolbar');
+  const toolButtons = document.querySelectorAll('.tool-btn[data-tool]');
+  const btnInsertImage = document.getElementById('btn-insert-image');
+  const imageFileInput = document.getElementById('image-file-input');
+
+  const rightPanel = document.getElementById('right-panel');
+  const toggleRightPanelBtn = document.getElementById('toggle-right-panel-btn');
+  const tabBtnProperties = document.getElementById('tab-btn-properties');
+  const tabBtnLayers = document.getElementById('tab-btn-layers');
+  const tabContentProperties = document.getElementById('tab-content-properties');
+  const tabContentLayers = document.getElementById('tab-content-layers');
+
+  const selectionPropsContainer = document.getElementById('selection-properties-container');
+  const canvasSettingsContainer = document.getElementById('canvas-settings-container');
+
+  // Property Inputs
+  const propX = document.getElementById('prop-x');
+  const propY = document.getElementById('prop-y');
+  const propW = document.getElementById('prop-w');
+  const propH = document.getElementById('prop-h');
+  const propRotation = document.getElementById('prop-rotation');
+  const propFillColor = document.getElementById('prop-fill-color');
+  const fillPreviewBox = document.getElementById('fill-preview-box');
+  const btnFillTransparent = document.getElementById('btn-fill-transparent');
+  const propStrokeColor = document.getElementById('prop-stroke-color');
+  const strokePreviewBox = document.getElementById('stroke-preview-box');
+  const propStrokeWidth = document.getElementById('prop-stroke-width');
+  const valStrokeWidth = document.getElementById('val-stroke-width');
+  const propOpacity = document.getElementById('prop-opacity');
+  const valOpacity = document.getElementById('val-opacity');
+  const propCornerRadius = document.getElementById('prop-corner-radius');
+  const cornerRadiusRow = document.getElementById('corner-radius-row');
+  const typographySection = document.getElementById('typography-section');
+  const propFontSize = document.getElementById('prop-font-size');
+
+  // Canvas Settings Inputs
+  const propCanvasBg = document.getElementById('prop-canvas-bg');
+  const canvasBgPreview = document.getElementById('canvas-bg-preview');
+  const propGridType = document.getElementById('prop-grid-type');
+  const propSnapGrid = document.getElementById('prop-snap-grid');
+  const statsTotalObjects = document.getElementById('stats-total-objects');
+  const statsZoomLevel = document.getElementById('stats-zoom-level');
+  const layersList = document.getElementById('layers-list');
+  const layersCount = document.getElementById('layers-count');
+  const coordDisplay = document.getElementById('coord-display');
+
+  // Modals & Context Menu
+  const contextMenu = document.getElementById('context-menu');
+  const modalExport = document.getElementById('modal-export');
+  const modalProject = document.getElementById('modal-project');
+  const modalShortcuts = document.getElementById('modal-shortcuts');
+  const btnExportDialog = document.getElementById('btn-export-dialog');
+  const btnProjectMenu = document.getElementById('btn-project-menu');
+  const btnShortcutsModal = document.getElementById('btn-shortcuts-modal');
+  const btnConfirmExport = document.getElementById('btn-confirm-export');
+  const exportAreaSelect = document.getElementById('export-area-select');
+  const exportTransparentBg = document.getElementById('export-transparent-bg');
+  let selectedExportScale = 1;
+
+  // ----------------------------------------------------
+  // COORDINATE & VIEWPORT UTILITIES
+  // ----------------------------------------------------
+  function screenToWorld(sx, sy) {
+    return {
+      x: (sx - state.viewport.x) / state.viewport.zoom,
+      y: (sy - state.viewport.y) / state.viewport.zoom
+    };
+  }
+
+  function worldToScreen(wx, wy) {
+    return {
+      x: wx * state.viewport.zoom + state.viewport.x,
+      y: wy * state.viewport.zoom + state.viewport.y
+    };
+  }
+
+  function snap(val) {
+    if (!state.snapToGrid) return val;
+    return Math.round(val / state.gridSize) * state.gridSize;
+  }
+
+  function snapPoint(pt) {
+    if (!state.snapToGrid) return { ...pt };
+    return {
+      x: snap(pt.x),
+      y: snap(pt.y)
+    };
+  }
+
+  function generateId(prefix = 'obj') {
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  }
+
+  // ----------------------------------------------------
+  // CANVAS RESIZING & HIGH-DPI SUPPORT
+  // ----------------------------------------------------
+  let dpr = window.devicePixelRatio || 1;
+
+  function resizeCanvas() {
+    dpr = window.devicePixelRatio || 1;
+    const rect = canvasViewport.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `${rect.height}px`;
+    requestRender();
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+
+  // ----------------------------------------------------
+  // OBJECT GEOMETRY & BOUNDS
+  // ----------------------------------------------------
+  function getObjectBounds(obj) {
+    if (!obj) return { x: 0, y: 0, width: 0, height: 0, minX: 0, minY: 0, maxX: 0, maxY: 0 };
+
+    if (obj.type === 'pencil' || obj.type === 'highlighter') {
+      if (!obj.points || obj.points.length === 0) return { x: 0, y: 0, width: 0, height: 0, minX: 0, minY: 0, maxX: 0, maxY: 0 };
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const p of obj.points) {
+        if (p.x < minX) minX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y > maxY) maxY = p.y;
+      }
+      const pad = (obj.strokeWidth || 2) / 2;
+      return {
+        x: minX - pad,
+        y: minY - pad,
+        width: Math.max(maxX - minX + pad * 2, 8),
+        height: Math.max(maxY - minY + pad * 2, 8),
+        minX: minX - pad,
+        minY: minY - pad,
+        maxX: maxX + pad,
+        maxY: maxY + pad
+      };
+    }
+
+    if (obj.type === 'line' || obj.type === 'arrow') {
+      const minX = Math.min(obj.x1, obj.x2);
+      const minY = Math.min(obj.y1, obj.y2);
+      const maxX = Math.max(obj.x1, obj.x2);
+      const maxY = Math.max(obj.y1, obj.y2);
+      const pad = Math.max(obj.strokeWidth || 2, 10);
+      return {
+        x: minX - pad,
+        y: minY - pad,
+        width: Math.max(maxX - minX + pad * 2, pad * 2),
+        height: Math.max(maxY - minY + pad * 2, pad * 2),
+        minX: minX - pad,
+        minY: minY - pad,
+        maxX: maxX + pad,
+        maxY: maxY + pad
+      };
+    }
+
+    // Rect, Circle, Triangle, Text, Sticky, Image
+    return {
+      x: obj.x,
+      y: obj.y,
+      width: obj.width,
+      height: obj.height,
+      minX: obj.x,
+      minY: obj.y,
+      maxX: obj.x + obj.width,
+      maxY: obj.y + obj.height
+    };
+  }
+
+  function getCombinedBounds(objects) {
+    if (objects.length === 0) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const obj of objects) {
+      const b = getObjectBounds(obj);
+      if (b.minX < minX) minX = b.minX;
+      if (b.minY < minY) minY = b.minY;
+      if (b.maxX > maxX) maxX = b.maxX;
+      if (b.maxY > maxY) maxY = b.maxY;
+    }
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+      minX, minY, maxX, maxY
+    };
+  }
+
+  // Point in rotated rectangle hit detection
+  function isPointInsideRotatedRect(px, py, rx, ry, rw, rh, rotation = 0) {
+    if (!rotation) {
+      return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh;
+    }
+    const cx = rx + rw / 2;
+    const cy = ry + rh / 2;
+    const cos = Math.cos(-rotation);
+    const sin = Math.sin(-rotation);
+    const dx = px - cx;
+    const dy = py - cy;
+    const nx = cos * dx - sin * dy + cx;
+    const ny = sin * dx + cos * dy + cy;
+    return nx >= rx && nx <= rx + rw && ny >= ry && ny <= ry + rh;
+  }
+
+  function distanceToSegment(px, py, x1, y1, x2, y2) {
+    const l2 = (x2 - x1) ** 2 + (y2 - y1) ** 2;
+    if (l2 === 0) return Math.hypot(px - x1, py - y1);
+    let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (x1 + t * (x2 - x1)), py - (y1 + t * (y2 - y1)));
+  }
+
+  function hitTestObject(obj, wx, wy) {
+    if (obj.hidden) return false;
+
+    if (obj.type === 'pencil' || obj.type === 'highlighter') {
+      const threshold = Math.max(obj.strokeWidth * 1.2, 8);
+      for (let i = 0; i < obj.points.length - 1; i++) {
+        const d = distanceToSegment(wx, wy, obj.points[i].x, obj.points[i].y, obj.points[i + 1].x, obj.points[i + 1].y);
+        if (d <= threshold) return true;
+      }
+      return false;
+    }
+
+    if (obj.type === 'line' || obj.type === 'arrow') {
+      const threshold = Math.max(obj.strokeWidth * 1.5, 8);
+      const d = distanceToSegment(wx, wy, obj.x1, obj.y1, obj.x2, obj.y2);
+      return d <= threshold;
+    }
+
+    // Shapes, Sticky, Text, Image
+    return isPointInsideRotatedRect(wx, wy, obj.x, obj.y, obj.width, obj.height, obj.rotation || 0);
+  }
+
+  // ----------------------------------------------------
+  // RESIZE & ROTATION HANDLES
+  // ----------------------------------------------------
+  const HANDLE_SIZE = 8;
+  const ROTATE_HANDLE_OFFSET = 24;
+
+  function getHandlePositions(bounds, rotation = 0) {
+    const cx = bounds.x + bounds.width / 2;
+    const cy = bounds.y + bounds.height / 2;
+
+    const baseHandles = {
+      tl: { x: bounds.x, y: bounds.y, cursor: 'nwse-resize' },
+      t:  { x: cx, y: bounds.y, cursor: 'ns-resize' },
+      tr: { x: bounds.x + bounds.width, y: bounds.y, cursor: 'nesw-resize' },
+      r:  { x: bounds.x + bounds.width, y: cy, cursor: 'ew-resize' },
+      br: { x: bounds.x + bounds.width, y: bounds.y + bounds.height, cursor: 'nwse-resize' },
+      b:  { x: cx, y: bounds.y + bounds.height, cursor: 'ns-resize' },
+      bl: { x: bounds.x, y: bounds.y + bounds.height, cursor: 'nesw-resize' },
+      l:  { x: bounds.x, y: cy, cursor: 'ew-resize' },
+      rot:{ x: cx, y: bounds.y - ROTATE_HANDLE_OFFSET / (state.viewport.zoom || 1), cursor: 'grab' }
+    };
+
+    if (!rotation) return baseHandles;
+
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
+    const rotated = {};
+
+    for (const [key, pt] of Object.entries(baseHandles)) {
+      const dx = pt.x - cx;
+      const dy = pt.y - cy;
+      rotated[key] = {
+        x: cx + dx * cos - dy * sin,
+        y: cy + dx * sin + dy * cos,
+        cursor: pt.cursor
+      };
+    }
+    return rotated;
+  }
+
+  function hitTestHandles(screenX, screenY) {
+    if (state.selectedIds.size === 0) return null;
+    const selectedObjs = state.objects.filter(o => state.selectedIds.has(o.id) && !o.hidden);
+    if (selectedObjs.length === 0) return null;
+
+    let targetBounds;
+    let rotation = 0;
+
+    if (selectedObjs.length === 1) {
+      const single = selectedObjs[0];
+      if (single.type === 'line' || single.type === 'arrow') {
+        // Test endpoint handles
+        const p1 = worldToScreen(single.x1, single.y1);
+        const p2 = worldToScreen(single.x2, single.y2);
+        if (Math.hypot(screenX - p1.x, screenY - p1.y) <= 10) return { handle: 'endpoint1', obj: single };
+        if (Math.hypot(screenX - p2.x, screenY - p2.y) <= 10) return { handle: 'endpoint2', obj: single };
+        return null;
+      }
+      targetBounds = { x: single.x, y: single.y, width: single.width, height: single.height };
+      rotation = single.rotation || 0;
+    } else {
+      targetBounds = getCombinedBounds(selectedObjs);
+      rotation = 0;
+    }
+
+    const handles = getHandlePositions(targetBounds, rotation);
+    const hitRadius = 8; // Screen pixels tolerance
+
+    for (const [hKey, pt] of Object.entries(handles)) {
+      const sp = worldToScreen(pt.x, pt.y);
+      if (Math.hypot(screenX - sp.x, screenY - sp.y) <= hitRadius) {
+        return { handle: hKey, cursor: pt.cursor, obj: selectedObjs.length === 1 ? selectedObjs[0] : null };
+      }
+    }
+    return null;
+  }
+
+  // ----------------------------------------------------
+  // RENDERING ENGINE
+  // ----------------------------------------------------
+  let renderRequested = false;
+
+  function requestRender() {
+    if (!renderRequested) {
+      renderRequested = true;
+      requestAnimationFrame(render);
+    }
+  }
+
+  function render() {
+    renderRequested = false;
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    const width = canvasViewport.clientWidth;
+    const height = canvasViewport.clientHeight;
+
+    // 1. Draw Canvas Background
+    ctx.fillStyle = state.canvasBg;
+    ctx.fillRect(0, 0, width, height);
+
+    // 2. Draw Grid (if enabled)
+    drawGrid(width, height);
+
+    // 3. Viewport Transform Matrix
+    ctx.save();
+    ctx.translate(state.viewport.x, state.viewport.y);
+    ctx.scale(state.viewport.zoom, state.viewport.zoom);
+
+    // 4. Render All Whiteboard Objects
+    for (const obj of state.objects) {
+      if (obj.hidden) continue;
+      drawObject(ctx, obj);
+    }
+
+    // 5. Render Temp Creation Object (e.g., active shape being drawn)
+    if (state.tempObject) {
+      drawObject(ctx, state.tempObject);
+    }
+
+    // 6. Render Selection Overlays, Bounding Box & Handles
+    drawSelectionOverlay(ctx);
+
+    ctx.restore();
+
+    // 7. Render Screen-Space Marquee Box Select
+    if (state.selectionBox) {
+      drawMarqueeBox(ctx);
+    }
+
+    ctx.restore();
+  }
+
+  function drawGrid(width, height) {
+    if (state.gridType === 'none') return;
+
+    const zoom = state.viewport.zoom;
+    let step = state.gridSize * zoom;
+    while (step < 12) step *= 2;
+    while (step > 60) step /= 2;
+
+    const offsetX = (state.viewport.x % step + step) % step;
+    const offsetY = (state.viewport.y % step + step) % step;
+
+    const isDarkBg = isColorDark(state.canvasBg);
+    const gridColor = isDarkBg ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)';
+
+    ctx.fillStyle = gridColor;
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth = 1;
+
+    if (state.gridType === 'dots') {
+      const radius = 1.2;
+      for (let x = offsetX; x < width; x += step) {
+        for (let y = offsetY; y < height; y += step) {
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    } else if (state.gridType === 'lines') {
+      ctx.beginPath();
+      for (let x = offsetX; x < width; x += step) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+      }
+      for (let y = offsetY; y < height; y += step) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function drawObject(targetCtx, obj) {
+    targetCtx.save();
+    targetCtx.globalAlpha = obj.opacity !== undefined ? obj.opacity : 1.0;
+
+    switch (obj.type) {
+      case 'pencil':
+      case 'highlighter':
+        drawFreehand(targetCtx, obj);
+        break;
+      case 'line':
+      case 'arrow':
+        drawLineOrArrow(targetCtx, obj);
+        break;
+      case 'rect':
+        drawRectangle(targetCtx, obj);
+        break;
+      case 'circle':
+        drawCircle(targetCtx, obj);
+        break;
+      case 'triangle':
+        drawTriangle(targetCtx, obj);
+        break;
+      case 'text':
+        drawText(targetCtx, obj);
+        break;
+      case 'sticky':
+        drawStickyNote(targetCtx, obj);
+        break;
+      case 'image':
+        drawImageObject(targetCtx, obj);
+        break;
+    }
+
+    targetCtx.restore();
+  }
+
+  function drawFreehand(c, obj) {
+    if (!obj.points || obj.points.length < 2) return;
+    c.save();
+    c.strokeStyle = obj.stroke;
+    c.lineWidth = obj.strokeWidth;
+    c.lineCap = 'round';
+    c.lineJoin = 'round';
+
+    if (obj.type === 'highlighter') {
+      c.globalAlpha = (obj.opacity || 1.0) * 0.35;
+      c.lineWidth = (obj.strokeWidth || 4) * 3;
+    }
+
+    c.beginPath();
+    c.moveTo(obj.points[0].x, obj.points[0].y);
+
+    for (let i = 1; i < obj.points.length - 1; i++) {
+      const midX = (obj.points[i].x + obj.points[i + 1].x) / 2;
+      const midY = (obj.points[i].y + obj.points[i + 1].y) / 2;
+      c.quadraticCurveTo(obj.points[i].x, obj.points[i].y, midX, midY);
+    }
+    const last = obj.points[obj.points.length - 1];
+    c.lineTo(last.x, last.y);
+    c.stroke();
+    c.restore();
+  }
+
+  function drawLineOrArrow(c, obj) {
+    c.save();
+    c.strokeStyle = obj.stroke;
+    c.lineWidth = obj.strokeWidth;
+    c.lineCap = 'round';
+
+    c.beginPath();
+    c.moveTo(obj.x1, obj.y1);
+    c.lineTo(obj.x2, obj.y2);
+    c.stroke();
+
+    if (obj.type === 'arrow') {
+      const angle = Math.atan2(obj.y2 - obj.y1, obj.x2 - obj.x1);
+      const headLen = Math.max(12, obj.strokeWidth * 3.5);
+      c.beginPath();
+      c.moveTo(obj.x2, obj.y2);
+      c.lineTo(obj.x2 - headLen * Math.cos(angle - Math.PI / 6), obj.y2 - headLen * Math.sin(angle - Math.PI / 6));
+      c.moveTo(obj.x2, obj.y2);
+      c.lineTo(obj.x2 - headLen * Math.cos(angle + Math.PI / 6), obj.y2 - headLen * Math.sin(angle + Math.PI / 6));
+      c.stroke();
+    }
+    c.restore();
+  }
+
+  function drawRectangle(c, obj) {
+    c.save();
+    applyObjectTransform(c, obj);
+
+    const r = Math.min(obj.cornerRadius || 0, obj.width / 2, obj.height / 2);
+    c.beginPath();
+    if (r > 0 && c.roundRect) {
+      c.roundRect(0, 0, obj.width, obj.height, r);
+    } else {
+      c.rect(0, 0, obj.width, obj.height);
+    }
+
+    if (obj.fill && obj.fill !== 'transparent') {
+      c.fillStyle = obj.fill;
+      c.fill();
+    }
+    if (obj.stroke && obj.strokeWidth > 0) {
+      c.strokeStyle = obj.stroke;
+      c.lineWidth = obj.strokeWidth;
+      c.stroke();
+    }
+    c.restore();
+  }
+
+  function drawCircle(c, obj) {
+    c.save();
+    applyObjectTransform(c, obj);
+
+    c.beginPath();
+    c.ellipse(obj.width / 2, obj.height / 2, Math.abs(obj.width / 2), Math.abs(obj.height / 2), 0, 0, Math.PI * 2);
+
+    if (obj.fill && obj.fill !== 'transparent') {
+      c.fillStyle = obj.fill;
+      c.fill();
+    }
+    if (obj.stroke && obj.strokeWidth > 0) {
+      c.strokeStyle = obj.stroke;
+      c.lineWidth = obj.strokeWidth;
+      c.stroke();
+    }
+    c.restore();
+  }
+
+  function drawTriangle(c, obj) {
+    c.save();
+    applyObjectTransform(c, obj);
+
+    c.beginPath();
+    c.moveTo(obj.width / 2, 0);
+    c.lineTo(obj.width, obj.height);
+    c.lineTo(0, obj.height);
+    c.closePath();
+
+    if (obj.fill && obj.fill !== 'transparent') {
+      c.fillStyle = obj.fill;
+      c.fill();
+    }
+    if (obj.stroke && obj.strokeWidth > 0) {
+      c.strokeStyle = obj.stroke;
+      c.lineWidth = obj.strokeWidth;
+      c.lineJoin = 'round';
+      c.stroke();
+    }
+    c.restore();
+  }
+
+  function drawText(c, obj) {
+    c.save();
+    applyObjectTransform(c, obj);
+
+    const fontSize = obj.fontSize || 18;
+    const fontFamily = obj.fontFamily || varFontStack();
+    const fontStyle = obj.fontStyle || 'normal';
+    const fontWeight = obj.fontWeight || 'normal';
+    c.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+    c.fillStyle = obj.stroke || '#1e1e1e';
+    c.textBaseline = 'top';
+    c.textAlign = obj.textAlign || 'left';
+
+    const lines = (obj.text || '').split('\n');
+    const lineHeight = fontSize * 1.3;
+
+    let x = 0;
+    if (obj.textAlign === 'center') x = obj.width / 2;
+    else if (obj.textAlign === 'right') x = obj.width;
+
+    for (let i = 0; i < lines.length; i++) {
+      c.fillText(lines[i], x, i * lineHeight);
+    }
+    c.restore();
+  }
+
+  function drawStickyNote(c, obj) {
+    c.save();
+    applyObjectTransform(c, obj);
+
+    // Subtle drop shadow
+    c.shadowColor = 'rgba(0, 0, 0, 0.08)';
+    c.shadowBlur = 10;
+    c.shadowOffsetY = 4;
+
+    c.fillStyle = obj.fill || '#fef3c7';
+    c.fillRect(0, 0, obj.width, obj.height);
+
+    c.shadowColor = 'transparent';
+
+    // Note header / fold tint
+    c.fillStyle = 'rgba(0, 0, 0, 0.03)';
+    c.fillRect(0, 0, obj.width, 16);
+
+    // Subtle border
+    c.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+    c.lineWidth = 1;
+    c.strokeRect(0, 0, obj.width, obj.height);
+
+    // Text content
+    const fontSize = obj.fontSize || 15;
+    c.font = `${obj.fontWeight || 'normal'} ${fontSize}px ${varFontStack()}`;
+    c.fillStyle = '#262626';
+    c.textBaseline = 'top';
+    c.textAlign = obj.textAlign || 'left';
+
+    const padding = 12;
+    const maxWidth = obj.width - padding * 2;
+    const lineHeight = fontSize * 1.35;
+    let startX = padding;
+    if (obj.textAlign === 'center') startX = obj.width / 2;
+    else if (obj.textAlign === 'right') startX = obj.width - padding;
+
+    const words = (obj.text || '').split('\n');
+    let curY = padding + 10;
+
+    for (const paragraph of words) {
+      const wrapped = wrapTextLines(c, paragraph, maxWidth);
+      for (const line of wrapped) {
+        if (curY + lineHeight <= obj.height - padding) {
+          c.fillText(line, startX, curY);
+          curY += lineHeight;
+        }
+      }
+    }
+
+    c.restore();
+  }
+
+  function drawImageObject(c, obj) {
+    if (!obj.imageElement && obj.src) {
+      const img = new Image();
+      img.src = obj.src;
+      img.onload = () => {
+        obj.imageElement = img;
+        requestRender();
+      };
+      return;
+    }
+    if (obj.imageElement && obj.imageElement.complete) {
+      c.save();
+      applyObjectTransform(c, obj);
+      c.drawImage(obj.imageElement, 0, 0, obj.width, obj.height);
+      c.restore();
+    }
+  }
+
+  function applyObjectTransform(c, obj) {
+    c.translate(obj.x, obj.y);
+    if (obj.rotation) {
+      c.translate(obj.width / 2, obj.height / 2);
+      c.rotate(obj.rotation);
+      c.translate(-obj.width / 2, -obj.height / 2);
+    }
+  }
+
+  function wrapTextLines(c, text, maxWidth) {
+    const words = text.split(' ');
+    const lines = [];
+    let cur = '';
+
+    for (const word of words) {
+      const test = cur ? cur + ' ' + word : word;
+      if (c.measureText(test).width <= maxWidth) {
+        cur = test;
+      } else {
+        if (cur) lines.push(cur);
+        cur = word;
+      }
+    }
+    if (cur) lines.push(cur);
+    return lines.length > 0 ? lines : [''];
+  }
+
+  function varFontStack() {
+    return '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  }
+
+  function isColorDark(hex) {
+    if (!hex || hex.startsWith('rgba')) return false;
+    let c = hex.substring(1);
+    if (c.length === 3) c = c.split('').map(x => x + x).join('');
+    const num = parseInt(c, 16);
+    const r = (num >> 16) & 255;
+    const g = (num >> 8) & 255;
+    const b = num & 255;
+    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return lum < 128;
+  }
+
+  // ----------------------------------------------------
+  // SELECTION OUTLINES & RESIZE HANDLES RENDERING
+  // ----------------------------------------------------
+  function drawSelectionOverlay(c) {
+    if (state.selectedIds.size === 0) return;
+    const selectedObjs = state.objects.filter(o => state.selectedIds.has(o.id) && !o.hidden);
+    if (selectedObjs.length === 0) return;
+
+    c.save();
+    const zoom = state.viewport.zoom;
+
+    if (selectedObjs.length === 1) {
+      const single = selectedObjs[0];
+
+      if (single.type === 'line' || single.type === 'arrow') {
+        c.strokeStyle = '#6965db';
+        c.lineWidth = 1.5 / zoom;
+        c.setLineDash([4 / zoom, 4 / zoom]);
+        c.beginPath();
+        c.moveTo(single.x1, single.y1);
+        c.lineTo(single.x2, single.y2);
+        c.stroke();
+        c.setLineDash([]);
+
+        // Endpoints handles
+        drawHandleCircle(c, single.x1, single.y1, zoom);
+        drawHandleCircle(c, single.x2, single.y2, zoom);
+        c.restore();
+        return;
+      }
+
+      // Single standard object
+      c.save();
+      c.translate(single.x + single.width / 2, single.y + single.height / 2);
+      if (single.rotation) c.rotate(single.rotation);
+      c.translate(-single.width / 2, -single.height / 2);
+
+      c.strokeStyle = '#6965db';
+      c.lineWidth = 1.5 / zoom;
+      c.strokeRect(0, 0, single.width, single.height);
+
+      // Rotation stem & dot
+      c.beginPath();
+      c.moveTo(single.width / 2, 0);
+      c.lineTo(single.width / 2, -ROTATE_HANDLE_OFFSET / zoom);
+      c.strokeStyle = '#6965db';
+      c.lineWidth = 1.2 / zoom;
+      c.stroke();
+      drawHandleCircle(c, single.width / 2, -ROTATE_HANDLE_OFFSET / zoom, zoom);
+
+      // 8 Bounding Handles
+      const hPoints = [
+        { x: 0, y: 0 },
+        { x: single.width / 2, y: 0 },
+        { x: single.width, y: 0 },
+        { x: single.width, y: single.height / 2 },
+        { x: single.width, y: single.height },
+        { x: single.width / 2, y: single.height },
+        { x: 0, y: single.height },
+        { x: 0, y: single.height / 2 }
+      ];
+
+      for (const p of hPoints) {
+        drawHandleSquare(c, p.x, p.y, zoom);
+      }
+      c.restore();
+    } else {
+      // Multiple selection group bounds
+      const bounds = getCombinedBounds(selectedObjs);
+      c.strokeStyle = '#6965db';
+      c.lineWidth = 1.5 / zoom;
+      c.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+
+      // Handles for group
+      const hPoints = [
+        { x: bounds.x, y: bounds.y },
+        { x: bounds.x + bounds.width, y: bounds.y },
+        { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
+        { x: bounds.x, y: bounds.y + bounds.height }
+      ];
+      for (const p of hPoints) {
+        drawHandleSquare(c, p.x, p.y, zoom);
+      }
+    }
+
+    c.restore();
+  }
+
+  function drawHandleSquare(c, x, y, zoom) {
+    const size = HANDLE_SIZE / zoom;
+    c.fillStyle = '#ffffff';
+    c.strokeStyle = '#6965db';
+    c.lineWidth = 1.5 / zoom;
+    c.fillRect(x - size / 2, y - size / 2, size, size);
+    c.strokeRect(x - size / 2, y - size / 2, size, size);
+  }
+
+  function drawHandleCircle(c, x, y, zoom) {
+    const r = (HANDLE_SIZE / 2) / zoom;
+    c.fillStyle = '#ffffff';
+    c.strokeStyle = '#6965db';
+    c.lineWidth = 1.5 / zoom;
+    c.beginPath();
+    c.arc(x, y, r, 0, Math.PI * 2);
+    c.fill();
+    c.stroke();
+  }
+
+  function drawMarqueeBox(c) {
+    const box = state.selectionBox;
+    const x = Math.min(box.startX, box.currentX);
+    const y = Math.min(box.startY, box.currentY);
+    const w = Math.abs(box.currentX - box.startX);
+    const h = Math.abs(box.currentY - box.startY);
+
+    c.save();
+    c.fillStyle = 'rgba(105, 101, 219, 0.08)';
+    c.strokeStyle = 'rgba(105, 101, 219, 0.8)';
+    c.lineWidth = 1;
+    c.setLineDash([4, 4]);
+    c.fillRect(x, y, w, h);
+    c.strokeRect(x, y, w, h);
+    c.restore();
+  }
+
+  // ----------------------------------------------------
+  // HISTORY SYSTEM (UNDO / REDO)
+  // ----------------------------------------------------
+  function recordHistory() {
+    // Snapshot of objects
+    const snapshot = JSON.stringify(state.objects.map(serializeObjectForHistory));
+    history.undoStack.push(snapshot);
+    if (history.undoStack.length > history.maxSize) {
+      history.undoStack.shift();
+    }
+    history.redoStack = [];
+    updateHistoryButtons();
+    scheduleAutosave();
+  }
+
+  function serializeObjectForHistory(obj) {
+    const copy = { ...obj };
+    delete copy.imageElement; // Exclude live DOM objects
+    return copy;
+  }
+
+  function undo() {
+    if (history.undoStack.length === 0) return;
+    const current = JSON.stringify(state.objects.map(serializeObjectForHistory));
+    history.redoStack.push(current);
+
+    const prev = history.undoStack.pop();
+    state.objects = JSON.parse(prev);
+    state.selectedIds.clear();
+    updateHistoryButtons();
+    updateInspector();
+    updateLayersList();
+    requestRender();
+    scheduleAutosave();
+  }
+
+  function redo() {
+    if (history.redoStack.length === 0) return;
+    const current = JSON.stringify(state.objects.map(serializeObjectForHistory));
+    history.undoStack.push(current);
+
+    const next = history.redoStack.pop();
+    state.objects = JSON.parse(next);
+    state.selectedIds.clear();
+    updateHistoryButtons();
+    updateInspector();
+    updateLayersList();
+    requestRender();
+    scheduleAutosave();
+  }
+
+  function updateHistoryButtons() {
+    btnUndo.disabled = history.undoStack.length === 0;
+    btnRedo.disabled = history.redoStack.length === 0;
+  }
+
+  // ----------------------------------------------------
+  // AUTOSAVE & PERSISTENCE
+  // ----------------------------------------------------
+  let autosaveTimer = null;
+
+  function scheduleAutosave() {
+    saveDot.classList.add('saving');
+    saveText.textContent = 'Saving...';
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(saveToLocalStorage, 600);
+  }
+
+  function saveToLocalStorage() {
+    try {
+      const payload = {
+        title: state.title,
+        viewport: state.viewport,
+        canvasBg: state.canvasBg,
+        gridType: state.gridType,
+        snapToGrid: state.snapToGrid,
+        objects: state.objects.map(serializeObjectForHistory)
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      saveDot.classList.remove('saving');
+      saveText.textContent = 'Saved';
+    } catch (e) {
+      console.error('Failed to autosave', e);
+      saveText.textContent = 'Save error';
+    }
+  }
+
+  function loadFromLocalStorage() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        initDefaultBoard();
+        return;
+      }
+      const data = JSON.parse(raw);
+      state.title = data.title || 'Untitled Board';
+      boardTitleInput.value = state.title;
+      state.viewport = data.viewport || { x: 0, y: 0, zoom: 1 };
+      state.canvasBg = data.canvasBg || '#ffffff';
+      state.gridType = data.gridType || 'dots';
+      state.snapToGrid = !!data.snapToGrid;
+      propGridType.value = state.gridType;
+      propSnapGrid.checked = state.snapToGrid;
+      propCanvasBg.value = state.canvasBg;
+      canvasBgPreview.style.backgroundColor = state.canvasBg;
+
+      state.objects = (data.objects || []).map(obj => {
+        if (obj.type === 'image' && obj.src) {
+          const img = new Image();
+          img.src = obj.src;
+          obj.imageElement = img;
+        }
+        return obj;
+      });
+
+      updateZoomDisplay();
+      updateInspector();
+      updateLayersList();
+      requestRender();
+    } catch (e) {
+      console.error('Failed loading board from storage', e);
+      initDefaultBoard();
+    }
+  }
+
+  function initDefaultBoard() {
+    // Welcoming onboarding shapes
+    const welcomeSticky = {
+      id: generateId('sticky'),
+      type: 'sticky',
+      x: 180,
+      y: 160,
+      width: 220,
+      height: 180,
+      text: "👋 Welcome to INFINITE!\n\n• Use the left toolbar to draw, create shapes & notes\n• Pan: Space + Drag\n• Zoom: Mouse wheel\n• Double click to edit text",
+      fill: '#fef3c7',
+      fontSize: 14,
+      rotation: -0.03
+    };
+
+    const rectDemo = {
+      id: generateId('rect'),
+      type: 'rect',
+      x: 460,
+      y: 160,
+      width: 200,
+      height: 120,
+      fill: '#e0e7ff',
+      stroke: '#6965db',
+      strokeWidth: 2,
+      cornerRadius: 8,
+      rotation: 0
+    };
+
+    const circleDemo = {
+      id: generateId('circle'),
+      type: 'circle',
+      x: 720,
+      y: 160,
+      width: 120,
+      height: 120,
+      fill: '#dcfce7',
+      stroke: '#10b981',
+      strokeWidth: 2,
+      rotation: 0
+    };
+
+    const arrowDemo = {
+      id: generateId('arrow'),
+      type: 'arrow',
+      x1: 400,
+      y1: 220,
+      x2: 450,
+      y2: 220,
+      stroke: '#6965db',
+      strokeWidth: 2
+    };
+
+    state.objects = [welcomeSticky, rectDemo, circleDemo, arrowDemo];
+    centerViewportOnObjects();
+    scheduleAutosave();
+  }
+
+  function centerViewportOnObjects() {
+    if (state.objects.length === 0) {
+      state.viewport = { x: 0, y: 0, zoom: 1 };
+    } else {
+      const bounds = getCombinedBounds(state.objects);
+      const vw = canvasViewport.clientWidth;
+      const vh = canvasViewport.clientHeight;
+      const padding = 100;
+      const scaleX = (vw - padding * 2) / bounds.width;
+      const scaleY = (vh - padding * 2) / bounds.height;
+      const zoom = Math.min(Math.max(Math.min(scaleX, scaleY), 0.3), 1.2);
+      state.viewport.zoom = zoom;
+      state.viewport.x = (vw - bounds.width * zoom) / 2 - bounds.x * zoom;
+      state.viewport.y = (vh - bounds.height * zoom) / 2 - bounds.y * zoom;
+    }
+    updateZoomDisplay();
+    requestRender();
+  }
+
+  // ----------------------------------------------------
+  // TOOL SWITCHING
+  // ----------------------------------------------------
+  function setActiveTool(tool) {
+    state.activeTool = tool;
+    toolButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tool === tool);
+    });
+
+    // Update viewport cursor class
+    canvasViewport.className = '';
+    if (tool === 'hand') {
+      canvasViewport.classList.add('panning');
+    } else if (tool === 'pencil' || tool === 'highlighter' || tool === 'rect' || tool === 'circle' || tool === 'triangle' || tool === 'line' || tool === 'arrow') {
+      canvasViewport.classList.add('crosshair');
+    } else if (tool === 'text') {
+      canvasViewport.classList.add('text-cursor');
+    } else if (tool === 'eraser') {
+      canvasViewport.classList.add('eraser-cursor');
+    }
+  }
+
+  leftToolbar.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tool-btn[data-tool]');
+    if (btn) {
+      setActiveTool(btn.dataset.tool);
+    }
+  });
+
+  // ----------------------------------------------------
+  // POINTER INTERACTIONS (DRAW, PAN, MOVE, RESIZE)
+  // ----------------------------------------------------
+  let isSpacePressed = false;
+
+  canvasViewport.addEventListener('pointerdown', handlePointerDown);
+  window.addEventListener('pointermove', handlePointerMove);
+  window.addEventListener('pointerup', handlePointerUp);
+  canvasViewport.addEventListener('wheel', handleWheel, { passive: false });
+  canvasViewport.addEventListener('dblclick', handleDoubleClick);
+
+  function handlePointerDown(e) {
+    if (e.button === 2) return; // Right-click handled by contextmenu
+    closeContextMenu();
+    finalizeInlineTextEdit();
+
+    const rect = canvasViewport.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    const worldPt = screenToWorld(sx, sy);
+
+    state.dragStart = { sx, sy, wx: worldPt.x, wy: worldPt.y };
+    state.pointerScreen = { x: sx, y: sy };
+    state.pointerWorld = { ...worldPt };
+
+    // Middle button OR Space + Click OR Hand tool => Pan
+    if (e.button === 1 || isSpacePressed || state.activeTool === 'hand') {
+      state.isInteracting = true;
+      state.interactionType = 'pan';
+      canvasViewport.classList.add('is-panning');
+      return;
+    }
+
+    // ERASER TOOL
+    if (state.activeTool === 'eraser') {
+      state.isInteracting = true;
+      state.interactionType = 'erase';
+      eraseAtPoint(worldPt.x, worldPt.y);
+      return;
+    }
+
+    // SELECT TOOL
+    if (state.activeTool === 'select') {
+      // 1. Check if clicked a handle on an already selected object
+      const handleHit = hitTestHandles(sx, sy);
+      if (handleHit) {
+        state.isInteracting = true;
+        state.interactionType = handleHit.handle === 'rot' ? 'rotate' : 'resize';
+        state.activeHandle = handleHit.handle;
+        state.initialObjectsState = state.objects.filter(o => state.selectedIds.has(o.id)).map(o => ({ ...o }));
+        return;
+      }
+
+      // 2. Check if clicked an object
+      const hitObj = findTopObjectAt(worldPt.x, worldPt.y);
+
+      if (hitObj) {
+        if (e.shiftKey) {
+          // Toggle selection
+          if (state.selectedIds.has(hitObj.id)) {
+            state.selectedIds.delete(hitObj.id);
+          } else {
+            state.selectedIds.add(hitObj.id);
+          }
+        } else {
+          // Normal click
+          if (!state.selectedIds.has(hitObj.id)) {
+            state.selectedIds.clear();
+            state.selectedIds.add(hitObj.id);
+          }
+        }
+        state.isInteracting = true;
+        state.interactionType = 'move';
+        state.initialObjectsState = state.objects.filter(o => state.selectedIds.has(o.id)).map(o => ({ ...o }));
+        updateInspector();
+        updateLayersList();
+        requestRender();
+      } else {
+        // Clicked empty space => Marquee select box or deselect
+        if (!e.shiftKey) {
+          state.selectedIds.clear();
+          updateInspector();
+          updateLayersList();
+        }
+        state.isInteracting = true;
+        state.interactionType = 'box_select';
+        state.selectionBox = { startX: sx, startY: sy, currentX: sx, currentY: sy };
+        requestRender();
+      }
+      return;
+    }
+
+    // DRAWING (PENCIL / HIGHLIGHTER)
+    if (state.activeTool === 'pencil' || state.activeTool === 'highlighter') {
+      state.isInteracting = true;
+      state.interactionType = 'draw';
+      state.tempObject = {
+        id: generateId(state.activeTool),
+        type: state.activeTool,
+        points: [{ x: worldPt.x, y: worldPt.y }],
+        stroke: state.currentStrokeColor,
+        strokeWidth: state.activeTool === 'highlighter' ? 14 : state.currentStrokeWidth,
+        opacity: state.currentOpacity
+      };
+      requestRender();
+      return;
+    }
+
+    // SHAPE CREATION
+    if (['rect', 'circle', 'triangle', 'line', 'arrow'].includes(state.activeTool)) {
+      state.isInteracting = true;
+      state.interactionType = 'create_shape';
+      const snappedPt = snapPoint(worldPt);
+
+      if (state.activeTool === 'line' || state.activeTool === 'arrow') {
+        state.tempObject = {
+          id: generateId(state.activeTool),
+          type: state.activeTool,
+          x1: snappedPt.x,
+          y1: snappedPt.y,
+          x2: snappedPt.x,
+          y2: snappedPt.y,
+          stroke: state.currentStrokeColor,
+          strokeWidth: state.currentStrokeWidth,
+          opacity: state.currentOpacity
+        };
+      } else {
+        state.tempObject = {
+          id: generateId(state.activeTool),
+          type: state.activeTool,
+          x: snappedPt.x,
+          y: snappedPt.y,
+          width: 0,
+          height: 0,
+          fill: state.currentFillColor,
+          stroke: state.currentStrokeColor,
+          strokeWidth: state.currentStrokeWidth,
+          opacity: state.currentOpacity,
+          cornerRadius: state.activeTool === 'rect' ? 0 : 0,
+          rotation: 0
+        };
+      }
+      requestRender();
+      return;
+    }
+
+    // TEXT TOOL: click to place text immediately
+    if (state.activeTool === 'text') {
+      const snappedPt = snapPoint(worldPt);
+      const newText = {
+        id: generateId('text'),
+        type: 'text',
+        x: snappedPt.x,
+        y: snappedPt.y,
+        width: 140,
+        height: 36,
+        text: 'Type text here',
+        stroke: state.currentStrokeColor,
+        fontSize: state.currentFontSize,
+        fontFamily: varFontStack(),
+        fontWeight: 'normal',
+        fontStyle: 'normal',
+        textAlign: 'left',
+        rotation: 0
+      };
+      recordHistory();
+      state.objects.push(newText);
+      state.selectedIds.clear();
+      state.selectedIds.add(newText.id);
+      setActiveTool('select');
+      startInlineTextEdit(newText);
+      requestRender();
+      return;
+    }
+
+    // STICKY NOTE: click or drag to create
+    if (state.activeTool === 'sticky') {
+      const snappedPt = snapPoint(worldPt);
+      const newSticky = {
+        id: generateId('sticky'),
+        type: 'sticky',
+        x: snappedPt.x,
+        y: snappedPt.y,
+        width: 180,
+        height: 160,
+        text: 'New Sticky Note',
+        fill: '#fef3c7',
+        fontSize: 15,
+        rotation: 0
+      };
+      recordHistory();
+      state.objects.push(newSticky);
+      state.selectedIds.clear();
+      state.selectedIds.add(newSticky.id);
+      setActiveTool('select');
+      startInlineTextEdit(newSticky);
+      requestRender();
+    }
+  }
+
+  function handlePointerMove(e) {
+    const rect = canvasViewport.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    const worldPt = screenToWorld(sx, sy);
+
+    state.pointerScreen = { x: sx, y: sy };
+    state.pointerWorld = { ...worldPt };
+
+    coordDisplay.textContent = `X: ${Math.round(worldPt.x)}, Y: ${Math.round(worldPt.y)}`;
+
+    // Hover handle cursor changes when select tool is idle
+    if (state.activeTool === 'select' && !state.isInteracting) {
+      const handleHit = hitTestHandles(sx, sy);
+      if (handleHit) {
+        canvasViewport.style.cursor = handleHit.cursor;
+      } else {
+        const hit = findTopObjectAt(worldPt.x, worldPt.y);
+        canvasViewport.style.cursor = hit ? 'move' : 'default';
+      }
+    }
+
+    if (!state.isInteracting) return;
+
+    // 1. PANNING
+    if (state.interactionType === 'pan') {
+      state.viewport.x += sx - state.dragStart.sx;
+      state.viewport.y += sy - state.dragStart.sy;
+      state.dragStart.sx = sx;
+      state.dragStart.sy = sy;
+      requestRender();
+      return;
+    }
+
+    // 2. ERASING
+    if (state.interactionType === 'erase') {
+      eraseAtPoint(worldPt.x, worldPt.y);
+      return;
+    }
+
+    // 3. DRAWING
+    if (state.interactionType === 'draw' && state.tempObject) {
+      state.tempObject.points.push({ x: worldPt.x, y: worldPt.y });
+      requestRender();
+      return;
+    }
+
+    // 4. CREATING SHAPES
+    if (state.interactionType === 'create_shape' && state.tempObject) {
+      const isShift = e.shiftKey;
+      const curWorld = snapPoint(worldPt);
+
+      if (state.tempObject.type === 'line' || state.tempObject.type === 'arrow') {
+        let x2 = curWorld.x;
+        let y2 = curWorld.y;
+        if (isShift) {
+          // Constrain 45 deg angle
+          const dx = x2 - state.tempObject.x1;
+          const dy = y2 - state.tempObject.y1;
+          const angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+          const len = Math.hypot(dx, dy);
+          x2 = state.tempObject.x1 + len * Math.cos(angle);
+          y2 = state.tempObject.y1 + len * Math.sin(angle);
+        }
+        state.tempObject.x2 = x2;
+        state.tempObject.y2 = y2;
+      } else {
+        let x = Math.min(state.dragStart.wx, curWorld.x);
+        let y = Math.min(state.dragStart.wy, curWorld.y);
+        let w = Math.abs(curWorld.x - state.dragStart.wx);
+        let h = Math.abs(curWorld.y - state.dragStart.wy);
+
+        if (isShift) {
+          const size = Math.max(w, h);
+          w = size;
+          h = size;
+          if (curWorld.x < state.dragStart.wx) x = state.dragStart.wx - size;
+          if (curWorld.y < state.dragStart.wy) y = state.dragStart.wy - size;
+        }
+
+        state.tempObject.x = x;
+        state.tempObject.y = y;
+        state.tempObject.width = w;
+        state.tempObject.height = h;
+      }
+      requestRender();
+      return;
+    }
+
+    // 5. MARQUEE SELECTION BOX
+    if (state.interactionType === 'box_select') {
+      state.selectionBox.currentX = sx;
+      state.selectionBox.currentY = sy;
+
+      const p1 = screenToWorld(Math.min(state.selectionBox.startX, sx), Math.min(state.selectionBox.startY, sy));
+      const p2 = screenToWorld(Math.max(state.selectionBox.startX, sx), Math.max(state.selectionBox.startY, sy));
+
+      state.selectedIds.clear();
+      for (const obj of state.objects) {
+        if (obj.hidden) continue;
+        const b = getObjectBounds(obj);
+        // Intersects test
+        if (b.maxX >= p1.x && b.minX <= p2.x && b.maxY >= p1.y && b.minY <= p2.y) {
+          state.selectedIds.add(obj.id);
+        }
+      }
+      updateInspector();
+      updateLayersList();
+      requestRender();
+      return;
+    }
+
+    // 6. MOVING OBJECTS
+    if (state.interactionType === 'move') {
+      const dx = worldPt.x - state.dragStart.wx;
+      const dy = worldPt.y - state.dragStart.wy;
+
+      state.initialObjectsState.forEach(orig => {
+        const live = state.objects.find(o => o.id === orig.id);
+        if (!live || live.locked) return;
+
+        if (live.type === 'line' || live.type === 'arrow') {
+          live.x1 = snap(orig.x1 + dx);
+          live.y1 = snap(orig.y1 + dy);
+          live.x2 = snap(orig.x2 + dx);
+          live.y2 = snap(orig.y2 + dy);
+        } else if (live.type === 'pencil' || live.type === 'highlighter') {
+          live.points = orig.points.map(pt => ({
+            x: pt.x + dx,
+            y: pt.y + dy
+          }));
+        } else {
+          live.x = snap(orig.x + dx);
+          live.y = snap(orig.y + dy);
+        }
+      });
+      updateInspector();
+      requestRender();
+      return;
+    }
+
+    // 7. ROTATING OBJECT
+    if (state.interactionType === 'rotate') {
+      const orig = state.initialObjectsState[0];
+      const live = state.objects.find(o => o.id === orig.id);
+      if (!live || live.locked) return;
+
+      const cx = orig.x + orig.width / 2;
+      const cy = orig.y + orig.height / 2;
+      const angle = Math.atan2(worldPt.y - cy, worldPt.x - cx) - Math.PI / 2;
+
+      let finalAngle = angle;
+      if (e.shiftKey) {
+        // Snap 15 degrees
+        const snapStep = Math.PI / 12;
+        finalAngle = Math.round(finalAngle / snapStep) * snapStep;
+      }
+      live.rotation = finalAngle;
+      updateInspector();
+      requestRender();
+      return;
+    }
+
+    // 8. RESIZING OBJECT
+    if (state.interactionType === 'resize') {
+      const handle = state.activeHandle;
+
+      if (handle === 'endpoint1' || handle === 'endpoint2') {
+        const orig = state.initialObjectsState[0];
+        const live = state.objects.find(o => o.id === orig.id);
+        if (live && !live.locked) {
+          const snapped = snapPoint(worldPt);
+          if (handle === 'endpoint1') {
+            live.x1 = snapped.x;
+            live.y1 = snapped.y;
+          } else {
+            live.x2 = snapped.x;
+            live.y2 = snapped.y;
+          }
+        }
+        updateInspector();
+        requestRender();
+        return;
+      }
+
+      const orig = state.initialObjectsState[0];
+      const live = state.objects.find(o => o.id === orig.id);
+      if (!live || live.locked) return;
+
+      resizeSingleObject(live, orig, handle, worldPt, e.shiftKey);
+      updateInspector();
+      requestRender();
+    }
+  }
+
+  function handlePointerUp() {
+    if (!state.isInteracting) return;
+
+    canvasViewport.classList.remove('is-panning');
+
+    // Finalize shape/drawing creation
+    if (state.interactionType === 'create_shape' && state.tempObject) {
+      const t = state.tempObject;
+      const isValid = (t.type === 'line' || t.type === 'arrow')
+        ? Math.hypot(t.x2 - t.x1, t.y2 - t.y1) > 4
+        : (t.width > 4 || t.height > 4);
+
+      if (isValid) {
+        recordHistory();
+        state.objects.push(t);
+        state.selectedIds.clear();
+        state.selectedIds.add(t.id);
+        setActiveTool('select');
+        updateInspector();
+        updateLayersList();
+      }
+      state.tempObject = null;
+    } else if (state.interactionType === 'draw' && state.tempObject) {
+      if (state.tempObject.points.length > 1) {
+        recordHistory();
+        state.objects.push(state.tempObject);
+        updateLayersList();
+      }
+      state.tempObject = null;
+    } else if (state.interactionType === 'move' || state.interactionType === 'resize' || state.interactionType === 'rotate') {
+      recordHistory();
+    }
+
+    state.isInteracting = false;
+    state.interactionType = null;
+    state.activeHandle = null;
+    state.selectionBox = null;
+    state.initialObjectsState = null;
+    requestRender();
+  }
+
+  function resizeSingleObject(live, orig, handle, worldPt, isShift) {
+    let newX = orig.x;
+    let newY = orig.y;
+    let newW = orig.width;
+    let newH = orig.height;
+
+    const cur = snapPoint(worldPt);
+
+    if (handle.includes('r')) newW = Math.max(10, cur.x - orig.x);
+    if (handle.includes('b')) newH = Math.max(10, cur.y - orig.y);
+    if (handle.includes('l')) {
+      const right = orig.x + orig.width;
+      newX = Math.min(right - 10, cur.x);
+      newW = right - newX;
+    }
+    if (handle.includes('t')) {
+      const bottom = orig.y + orig.height;
+      newY = Math.min(bottom - 10, cur.y);
+      newH = bottom - newY;
+    }
+
+    if (isShift) {
+      const ratio = orig.width / orig.height || 1;
+      if (['tl', 'tr', 'br', 'bl'].includes(handle)) {
+        const side = Math.max(newW, newH * ratio);
+        newW = side;
+        newH = side / ratio;
+        if (handle.includes('l')) newX = orig.x + orig.width - newW;
+        if (handle.includes('t')) newY = orig.y + orig.height - newH;
+      }
+    }
+
+    live.x = newX;
+    live.y = newY;
+    live.width = newW;
+    live.height = newH;
+  }
+
+  function eraseAtPoint(wx, wy) {
+    const prevCount = state.objects.length;
+    state.objects = state.objects.filter(obj => {
+      if (obj.locked) return true;
+      return !hitTestObject(obj, wx, wy);
+    });
+    if (state.objects.length !== prevCount) {
+      recordHistory();
+      state.selectedIds.clear();
+      updateInspector();
+      updateLayersList();
+      requestRender();
+    }
+  }
+
+  function findTopObjectAt(wx, wy) {
+    // Search in reverse z-index order
+    for (let i = state.objects.length - 1; i >= 0; i--) {
+      const obj = state.objects[i];
+      if (hitTestObject(obj, wx, wy)) {
+        return obj;
+      }
+    }
+    return null;
+  }
+
+  // ----------------------------------------------------
+  // ZOOM & VIEWPORT WHEEL
+  // ----------------------------------------------------
+  function handleWheel(e) {
+    e.preventDefault();
+    const rect = canvasViewport.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    if (e.ctrlKey || e.metaKey) {
+      // Zoom
+      const zoomFactor = 1 - e.deltaY * 0.002;
+      applyZoom(state.viewport.zoom * zoomFactor, mouseX, mouseY);
+    } else {
+      // Pan
+      state.viewport.x -= e.deltaX;
+      state.viewport.y -= e.deltaY;
+      requestRender();
+    }
+  }
+
+  function applyZoom(targetZoom, pivotX, pivotY) {
+    const minZoom = 0.1;
+    const maxZoom = 5.0;
+    const nextZoom = Math.max(minZoom, Math.min(maxZoom, targetZoom));
+
+    if (pivotX === undefined) {
+      pivotX = canvasViewport.clientWidth / 2;
+      pivotY = canvasViewport.clientHeight / 2;
+    }
+
+    state.viewport.x = pivotX - (pivotX - state.viewport.x) * (nextZoom / state.viewport.zoom);
+    state.viewport.y = pivotY - (pivotY - state.viewport.y) * (nextZoom / state.viewport.zoom);
+    state.viewport.zoom = nextZoom;
+
+    updateZoomDisplay();
+    requestRender();
+    scheduleAutosave();
+  }
+
+  function updateZoomDisplay() {
+    const pct = Math.round(state.viewport.zoom * 100);
+    zoomPercentageText.textContent = `${pct}%`;
+    statsZoomLevel.textContent = `${pct}%`;
+  }
+
+  btnZoomIn.addEventListener('click', () => applyZoom(state.viewport.zoom * 1.25));
+  btnZoomOut.addEventListener('click', () => applyZoom(state.viewport.zoom * 0.8));
+  btnZoomReset.addEventListener('click', () => applyZoom(1.0));
+  btnFitScreen.addEventListener('click', centerViewportOnObjects);
+
+  // ----------------------------------------------------
+  // INLINE TEXT EDITING
+  // ----------------------------------------------------
+  let activeEditingObj = null;
+
+  function handleDoubleClick(e) {
+    const rect = canvasViewport.getBoundingClientRect();
+    const worldPt = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    const hitObj = findTopObjectAt(worldPt.x, worldPt.y);
+
+    if (hitObj && (hitObj.type === 'text' || hitObj.type === 'sticky')) {
+      startInlineTextEdit(hitObj);
+    }
+  }
+
+  function startInlineTextEdit(obj) {
+    activeEditingObj = obj;
+    const sp = worldToScreen(obj.x, obj.y);
+    const zoom = state.viewport.zoom;
+
+    canvasTextEditor.style.display = 'block';
+    canvasTextEditor.style.left = `${sp.x}px`;
+    canvasTextEditor.style.top = `${sp.y}px`;
+    canvasTextEditor.style.width = `${Math.max(obj.width * zoom, 120)}px`;
+    canvasTextEditor.style.minHeight = `${Math.max(obj.height * zoom, 32)}px`;
+    canvasTextEditor.style.fontSize = `${(obj.fontSize || 16) * zoom}px`;
+    canvasTextEditor.style.color = obj.type === 'sticky' ? '#262626' : (obj.stroke || '#1e1e1e');
+    canvasTextEditor.style.fontWeight = obj.fontWeight || 'normal';
+    canvasTextEditor.style.textAlign = obj.textAlign || 'left';
+    canvasTextEditor.style.transform = `rotate(${obj.rotation || 0}rad)`;
+    canvasTextEditor.value = obj.text || '';
+
+    setTimeout(() => {
+      canvasTextEditor.focus();
+      canvasTextEditor.select();
+    }, 10);
+  }
+
+  function finalizeInlineTextEdit() {
+    if (!activeEditingObj) return;
+    const textVal = canvasTextEditor.value;
+    if (activeEditingObj.text !== textVal) {
+      recordHistory();
+      activeEditingObj.text = textVal;
+    }
+    canvasTextEditor.style.display = 'none';
+    activeEditingObj = null;
+    requestRender();
+    scheduleAutosave();
+  }
+
+  canvasTextEditor.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      finalizeInlineTextEdit();
+    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      finalizeInlineTextEdit();
+    }
+  });
+
+  // ----------------------------------------------------
+  // INSPECTOR / RIGHT PROPERTIES PANEL
+  // ----------------------------------------------------
+  function updateInspector() {
+    const selectedObjs = state.objects.filter(o => state.selectedIds.has(o.id));
+    statsTotalObjects.textContent = state.objects.length;
+
+    if (selectedObjs.length === 0) {
+      selectionPropsContainer.style.display = 'none';
+      canvasSettingsContainer.style.display = 'flex';
+      return;
+    }
+
+    selectionPropsContainer.style.display = 'flex';
+    canvasSettingsContainer.style.display = 'none';
+
+    if (selectedObjs.length === 1) {
+      const obj = selectedObjs[0];
+      const bounds = getObjectBounds(obj);
+
+      propX.value = Math.round(bounds.x);
+      propY.value = Math.round(bounds.y);
+      propW.value = Math.round(bounds.width);
+      propH.value = Math.round(bounds.height);
+      propRotation.value = Math.round(((obj.rotation || 0) * 180) / Math.PI);
+
+      // Colors
+      const fill = obj.fill || 'transparent';
+      propFillColor.value = fill.startsWith('#') ? fill : '#ffffff';
+      fillPreviewBox.style.backgroundColor = fill;
+
+      const stroke = obj.stroke || '#1e1e1e';
+      propStrokeColor.value = stroke.startsWith('#') ? stroke : '#1e1e1e';
+      strokePreviewBox.style.backgroundColor = stroke;
+
+      propStrokeWidth.value = obj.strokeWidth || 2;
+      valStrokeWidth.textContent = `${obj.strokeWidth || 2}px`;
+
+      const opacityPct = Math.round((obj.opacity !== undefined ? obj.opacity : 1.0) * 100);
+      propOpacity.value = opacityPct;
+      valOpacity.textContent = `${opacityPct}%`;
+
+      // Corner radius visibility
+      cornerRadiusRow.style.display = obj.type === 'rect' ? 'flex' : 'none';
+      propCornerRadius.value = obj.cornerRadius || 0;
+
+      // Typography visibility
+      typographySection.style.display = (obj.type === 'text' || obj.type === 'sticky') ? 'flex' : 'none';
+      propFontSize.value = obj.fontSize || 16;
+    } else {
+      // Multi-selection
+      const b = getCombinedBounds(selectedObjs);
+      propX.value = Math.round(b.x);
+      propY.value = Math.round(b.y);
+      propW.value = Math.round(b.width);
+      propH.value = Math.round(b.height);
+      propRotation.value = 0;
+      cornerRadiusRow.style.display = 'none';
+      typographySection.style.display = 'none';
+    }
+  }
+
+  // Inspector Input Event Listeners
+  propX.addEventListener('change', () => applyInspectorChange((o, val) => o.x = val, parseFloat(propX.value)));
+  propY.addEventListener('change', () => applyInspectorChange((o, val) => o.y = val, parseFloat(propY.value)));
+  propW.addEventListener('change', () => applyInspectorChange((o, val) => o.width = Math.max(5, val), parseFloat(propW.value)));
+  propH.addEventListener('change', () => applyInspectorChange((o, val) => o.height = Math.max(5, val), parseFloat(propH.value)));
+  propRotation.addEventListener('input', () => {
+    const rad = (parseFloat(propRotation.value) * Math.PI) / 180;
+    applyInspectorChange((o, val) => o.rotation = val, rad);
+  });
+
+  propFillColor.addEventListener('input', (e) => {
+    const val = e.target.value;
+    fillPreviewBox.style.backgroundColor = val;
+    applyInspectorChange((o, v) => o.fill = v, val);
+  });
+
+  btnFillTransparent.addEventListener('click', () => {
+    fillPreviewBox.style.backgroundColor = 'transparent';
+    applyInspectorChange((o, v) => o.fill = v, 'transparent');
+  });
+
+  propStrokeColor.addEventListener('input', (e) => {
+    const val = e.target.value;
+    strokePreviewBox.style.backgroundColor = val;
+    applyInspectorChange((o, v) => o.stroke = v, val);
+  });
+
+  propStrokeWidth.addEventListener('input', (e) => {
+    const val = parseInt(e.target.value, 10);
+    valStrokeWidth.textContent = `${val}px`;
+    applyInspectorChange((o, v) => o.strokeWidth = v, val);
+  });
+
+  propOpacity.addEventListener('input', (e) => {
+    const val = parseInt(e.target.value, 10) / 100;
+    valOpacity.textContent = `${Math.round(val * 100)}%`;
+    applyInspectorChange((o, v) => o.opacity = v, val);
+  });
+
+  propCornerRadius.addEventListener('input', (e) => {
+    const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+    applyInspectorChange((o, v) => o.cornerRadius = v, val);
+  });
+
+  propFontSize.addEventListener('input', (e) => {
+    const val = Math.max(8, parseInt(e.target.value, 10) || 16);
+    applyInspectorChange((o, v) => o.fontSize = v, val);
+  });
+
+  // Palette swatch buttons
+  document.getElementById('fill-swatches').addEventListener('click', (e) => {
+    const btn = e.target.closest('.color-swatch-btn');
+    if (btn) {
+      const color = btn.dataset.color;
+      fillPreviewBox.style.backgroundColor = color;
+      applyInspectorChange((o, v) => o.fill = v, color);
+    }
+  });
+
+  document.getElementById('stroke-swatches').addEventListener('click', (e) => {
+    const btn = e.target.closest('.color-swatch-btn');
+    if (btn) {
+      const color = btn.dataset.color;
+      strokePreviewBox.style.backgroundColor = color;
+      applyInspectorChange((o, v) => o.stroke = v, color);
+    }
+  });
+
+  function applyInspectorChange(setter, value) {
+    if (state.selectedIds.size === 0) return;
+    recordHistory();
+    state.objects.forEach(obj => {
+      if (state.selectedIds.has(obj.id) && !obj.locked) {
+        setter(obj, value);
+      }
+    });
+    requestRender();
+  }
+
+  // Text formatting controls
+  document.getElementById('btn-text-align-left').addEventListener('click', () => applyInspectorChange((o, v) => o.textAlign = v, 'left'));
+  document.getElementById('btn-text-align-center').addEventListener('click', () => applyInspectorChange((o, v) => o.textAlign = v, 'center'));
+  document.getElementById('btn-text-align-right').addEventListener('click', () => applyInspectorChange((o, v) => o.textAlign = v, 'right'));
+  document.getElementById('btn-text-bold').addEventListener('click', () => applyInspectorChange((o) => o.fontWeight = o.fontWeight === 'bold' ? 'normal' : 'bold'));
+  document.getElementById('btn-text-italic').addEventListener('click', () => applyInspectorChange((o) => o.fontStyle = o.fontStyle === 'italic' ? 'normal' : 'italic'));
+
+  // Canvas settings handlers
+  propCanvasBg.addEventListener('input', (e) => {
+    state.canvasBg = e.target.value;
+    canvasBgPreview.style.backgroundColor = state.canvasBg;
+    requestRender();
+    scheduleAutosave();
+  });
+
+  document.getElementById('canvas-bg-swatches').addEventListener('click', (e) => {
+    const btn = e.target.closest('.color-swatch-btn');
+    if (btn) {
+      state.canvasBg = btn.dataset.color;
+      canvasBgPreview.style.backgroundColor = state.canvasBg;
+      propCanvasBg.value = state.canvasBg.startsWith('#') ? state.canvasBg : '#ffffff';
+      requestRender();
+      scheduleAutosave();
+    }
+  });
+
+  propGridType.addEventListener('change', (e) => {
+    state.gridType = e.target.value;
+    requestRender();
+    scheduleAutosave();
+  });
+
+  propSnapGrid.addEventListener('change', (e) => {
+    state.snapToGrid = e.target.checked;
+    scheduleAutosave();
+  });
+
+  // ----------------------------------------------------
+  // ALIGNMENT & ARRANGE ACTIONS
+  // ----------------------------------------------------
+  function alignSelected(direction) {
+    const sel = state.objects.filter(o => state.selectedIds.has(o.id) && !o.locked);
+    if (sel.length < 2) return;
+    recordHistory();
+
+    const overall = getCombinedBounds(sel);
+
+    sel.forEach(obj => {
+      switch (direction) {
+        case 'left':
+          obj.x = overall.minX;
+          break;
+        case 'center':
+          obj.x = overall.minX + (overall.width - obj.width) / 2;
+          break;
+        case 'right':
+          obj.x = overall.maxX - obj.width;
+          break;
+        case 'top':
+          obj.y = overall.minY;
+          break;
+        case 'middle':
+          obj.y = overall.minY + (overall.height - obj.height) / 2;
+          break;
+        case 'bottom':
+          obj.y = overall.maxY - obj.height;
+          break;
+      }
+    });
+
+    updateInspector();
+    requestRender();
+  }
+
+  document.getElementById('btn-align-left').addEventListener('click', () => alignSelected('left'));
+  document.getElementById('btn-align-center').addEventListener('click', () => alignSelected('center'));
+  document.getElementById('btn-align-right').addEventListener('click', () => alignSelected('right'));
+  document.getElementById('btn-align-top').addEventListener('click', () => alignSelected('top'));
+  document.getElementById('btn-align-middle').addEventListener('click', () => alignSelected('middle'));
+  document.getElementById('btn-align-bottom').addEventListener('click', () => alignSelected('bottom'));
+
+  function bringToFront() {
+    if (state.selectedIds.size === 0) return;
+    recordHistory();
+    const sel = state.objects.filter(o => state.selectedIds.has(o.id));
+    const rest = state.objects.filter(o => !state.selectedIds.has(o.id));
+    state.objects = [...rest, ...sel];
+    updateLayersList();
+    requestRender();
+  }
+
+  function sendToBack() {
+    if (state.selectedIds.size === 0) return;
+    recordHistory();
+    const sel = state.objects.filter(o => state.selectedIds.has(o.id));
+    const rest = state.objects.filter(o => !state.selectedIds.has(o.id));
+    state.objects = [...sel, ...rest];
+    updateLayersList();
+    requestRender();
+  }
+
+  document.getElementById('btn-bring-front').addEventListener('click', bringToFront);
+  document.getElementById('btn-send-back').addEventListener('click', sendToBack);
+
+  // ----------------------------------------------------
+  // LAYERS PANEL
+  // ----------------------------------------------------
+  function updateLayersList() {
+    layersList.innerHTML = '';
+    layersCount.textContent = `${state.objects.length} items`;
+
+    // Render in reverse order so top layers are at the top of the UI list
+    for (let i = state.objects.length - 1; i >= 0; i--) {
+      const obj = state.objects[i];
+      const isSelected = state.selectedIds.has(obj.id);
+
+      const item = document.createElement('div');
+      item.className = `layer-item ${isSelected ? 'active' : ''}`;
+      item.dataset.id = obj.id;
+
+      const typeLabel = obj.type.charAt(0).toUpperCase() + obj.type.slice(1);
+      const name = obj.type === 'text' || obj.type === 'sticky' ? `"${(obj.text || '').slice(0, 14)}..."` : typeLabel;
+
+      item.innerHTML = `
+        <div class="layer-info">
+          <i data-lucide="${getLayerIcon(obj.type)}" style="width:14px; height:14px;"></i>
+          <span>${name}</span>
+        </div>
+        <div class="layer-actions">
+          <button class="layer-action-btn btn-lock" title="${obj.locked ? 'Unlock' : 'Lock'}">
+            <i data-lucide="${obj.locked ? 'lock' : 'unlock'}" style="width:13px; height:13px;"></i>
+          </button>
+          <button class="layer-action-btn btn-visibility" title="${obj.hidden ? 'Show' : 'Hide'}">
+            <i data-lucide="${obj.hidden ? 'eye-off' : 'eye'}" style="width:13px; height:13px;"></i>
+          </button>
+          <button class="layer-action-btn btn-delete" title="Delete Layer">
+            <i data-lucide="trash-2" style="width:13px; height:13px;"></i>
+          </button>
+        </div>
+      `;
+
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.layer-action-btn')) return;
+        state.selectedIds.clear();
+        state.selectedIds.add(obj.id);
+        updateInspector();
+        updateLayersList();
+        requestRender();
+      });
+
+      // Actions
+      item.querySelector('.btn-lock').addEventListener('click', (e) => {
+        e.stopPropagation();
+        obj.locked = !obj.locked;
+        updateLayersList();
+        scheduleAutosave();
+      });
+
+      item.querySelector('.btn-visibility').addEventListener('click', (e) => {
+        e.stopPropagation();
+        obj.hidden = !obj.hidden;
+        updateLayersList();
+        requestRender();
+        scheduleAutosave();
+      });
+
+      item.querySelector('.btn-delete').addEventListener('click', (e) => {
+        e.stopPropagation();
+        recordHistory();
+        state.objects = state.objects.filter(o => o.id !== obj.id);
+        state.selectedIds.delete(obj.id);
+        updateInspector();
+        updateLayersList();
+        requestRender();
+      });
+
+      layersList.appendChild(item);
+    }
+
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+  }
+
+  function getLayerIcon(type) {
+    switch (type) {
+      case 'rect': return 'square';
+      case 'circle': return 'circle';
+      case 'triangle': return 'triangle';
+      case 'line': return 'minus';
+      case 'arrow': return 'arrow-up-right';
+      case 'pencil': return 'pencil';
+      case 'highlighter': return 'highlighter';
+      case 'text': return 'type';
+      case 'sticky': return 'sticky-note';
+      case 'image': return 'image';
+      default: return 'box';
+    }
+  }
+
+  // Layer & Properties Tab Switching
+  tabBtnProperties.addEventListener('click', () => {
+    tabBtnProperties.classList.add('active');
+    tabBtnLayers.classList.remove('active');
+    tabContentProperties.style.display = 'flex';
+    tabContentLayers.style.display = 'none';
+  });
+
+  tabBtnLayers.addEventListener('click', () => {
+    tabBtnLayers.classList.add('active');
+    tabBtnProperties.classList.remove('active');
+    tabContentLayers.style.display = 'flex';
+    tabContentProperties.style.display = 'none';
+    updateLayersList();
+  });
+
+  toggleRightPanelBtn.addEventListener('click', () => {
+    rightPanel.classList.toggle('collapsed');
+  });
+
+  // ----------------------------------------------------
+  // COPY, PASTE, DUPLICATE & DELETE
+  // ----------------------------------------------------
+  function copySelected() {
+    if (state.selectedIds.size === 0) return;
+    const selected = state.objects.filter(o => state.selectedIds.has(o.id));
+    state.clipboard = JSON.parse(JSON.stringify(selected.map(serializeObjectForHistory)));
+  }
+
+  function pasteClipboard() {
+    if (!state.clipboard || state.clipboard.length === 0) return;
+    recordHistory();
+    state.selectedIds.clear();
+
+    const offset = 24;
+    const newItems = state.clipboard.map(item => {
+      const copy = { ...item, id: generateId(item.type) };
+      if (copy.type === 'line' || copy.type === 'arrow') {
+        copy.x1 += offset;
+        copy.y1 += offset;
+        copy.x2 += offset;
+        copy.y2 += offset;
+      } else if (copy.type === 'pencil' || copy.type === 'highlighter') {
+        copy.points = copy.points.map(p => ({ x: p.x + offset, y: p.y + offset }));
+      } else {
+        copy.x += offset;
+        copy.y += offset;
+      }
+      return copy;
+    });
+
+    state.objects.push(...newItems);
+    newItems.forEach(item => state.selectedIds.add(item.id));
+
+    // Update clipboard coordinates for consecutive pastes
+    state.clipboard = JSON.parse(JSON.stringify(newItems.map(serializeObjectForHistory)));
+
+    updateInspector();
+    updateLayersList();
+    requestRender();
+  }
+
+  function duplicateSelected() {
+    copySelected();
+    pasteClipboard();
+  }
+
+  function deleteSelected() {
+    if (state.selectedIds.size === 0) return;
+    recordHistory();
+    state.objects = state.objects.filter(o => !state.selectedIds.has(o.id) || o.locked);
+    state.selectedIds.clear();
+    updateInspector();
+    updateLayersList();
+    requestRender();
+  }
+
+  document.getElementById('btn-duplicate-selected').addEventListener('click', duplicateSelected);
+  document.getElementById('btn-delete-selected').addEventListener('click', deleteSelected);
+
+  // ----------------------------------------------------
+  // IMAGE INSERTION
+  // ----------------------------------------------------
+  btnInsertImage.addEventListener('click', () => {
+    imageFileInput.click();
+  });
+
+  imageFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+      const img = new Image();
+      img.src = dataUrl;
+      img.onload = () => {
+        // Place in center of screen
+        const screenCenter = screenToWorld(canvasViewport.clientWidth / 2, canvasViewport.clientHeight / 2);
+        const maxDim = 400;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxDim || h > maxDim) {
+          const ratio = Math.min(maxDim / w, maxDim / h);
+          w *= ratio;
+          h *= ratio;
+        }
+
+        const newImgObj = {
+          id: generateId('img'),
+          type: 'image',
+          src: dataUrl,
+          imageElement: img,
+          x: Math.round(screenCenter.x - w / 2),
+          y: Math.round(screenCenter.y - h / 2),
+          width: Math.round(w),
+          height: Math.round(h),
+          rotation: 0
+        };
+
+        recordHistory();
+        state.objects.push(newImgObj);
+        state.selectedIds.clear();
+        state.selectedIds.add(newImgObj.id);
+        setActiveTool('select');
+        updateInspector();
+        updateLayersList();
+        requestRender();
+      };
+    };
+    reader.readAsDataURL(file);
+    imageFileInput.value = '';
+  });
+
+  // ----------------------------------------------------
+  // CONTEXT MENU
+  // ----------------------------------------------------
+  canvasViewport.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const rect = canvasViewport.getBoundingClientRect();
+    const worldPt = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    const hitObj = findTopObjectAt(worldPt.x, worldPt.y);
+
+    if (hitObj) {
+      if (!state.selectedIds.has(hitObj.id)) {
+        state.selectedIds.clear();
+        state.selectedIds.add(hitObj.id);
+        updateInspector();
+        updateLayersList();
+        requestRender();
+      }
+    }
+
+    openContextMenu(e.clientX, e.clientY);
+  });
+
+  function openContextMenu(x, y) {
+    contextMenu.style.display = 'block';
+    const menuWidth = 190;
+    const menuHeight = 220;
+    const posX = (x + menuWidth > window.innerWidth) ? x - menuWidth : x;
+    const posY = (y + menuHeight > window.innerHeight) ? y - menuHeight : y;
+
+    contextMenu.style.left = `${posX}px`;
+    contextMenu.style.top = `${posY}px`;
+  }
+
+  function closeContextMenu() {
+    contextMenu.style.display = 'none';
+  }
+
+  window.addEventListener('click', (e) => {
+    if (!contextMenu.contains(e.target)) {
+      closeContextMenu();
+    }
+  });
+
+  document.getElementById('ctx-cut').addEventListener('click', () => { copySelected(); deleteSelected(); closeContextMenu(); });
+  document.getElementById('ctx-copy').addEventListener('click', () => { copySelected(); closeContextMenu(); });
+  document.getElementById('ctx-paste').addEventListener('click', () => { pasteClipboard(); closeContextMenu(); });
+  document.getElementById('ctx-duplicate').addEventListener('click', () => { duplicateSelected(); closeContextMenu(); });
+  document.getElementById('ctx-bring-front').addEventListener('click', () => { bringToFront(); closeContextMenu(); });
+  document.getElementById('ctx-send-back').addEventListener('click', () => { sendToBack(); closeContextMenu(); });
+  document.getElementById('ctx-delete').addEventListener('click', () => { deleteSelected(); closeContextMenu(); });
+
+  // ----------------------------------------------------
+  // EXPORT FUNCTIONALITY (PNG & HIGH-RES)
+  // ----------------------------------------------------
+  btnExportDialog.addEventListener('click', () => {
+    modalExport.classList.add('open');
+  });
+
+  document.querySelectorAll('[data-export-scale]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-export-scale]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedExportScale = parseInt(btn.dataset.exportScale, 10);
+    });
+  });
+
+  btnConfirmExport.addEventListener('click', () => {
+    const area = exportAreaSelect.value;
+    const scale = selectedExportScale || 1;
+    const transparent = exportTransparentBg.checked;
+
+    let targetBounds;
+    let exportObjects = state.objects;
+
+    if (area === 'selection') {
+      const selected = state.objects.filter(o => state.selectedIds.has(o.id));
+      if (selected.length === 0) {
+        alert('No objects currently selected to export!');
+        return;
+      }
+      exportObjects = selected;
+      targetBounds = getCombinedBounds(selected);
+    } else if (area === 'viewport') {
+      const p1 = screenToWorld(0, 0);
+      const p2 = screenToWorld(canvasViewport.clientWidth, canvasViewport.clientHeight);
+      targetBounds = {
+        x: p1.x,
+        y: p1.y,
+        width: p2.x - p1.x,
+        height: p2.y - p1.y
+      };
+    } else {
+      // Entire Board Content
+      if (state.objects.length === 0) {
+        alert('Canvas is empty!');
+        return;
+      }
+      const b = getCombinedBounds(state.objects);
+      const pad = 40;
+      targetBounds = {
+        x: b.x - pad,
+        y: b.y - pad,
+        width: b.width + pad * 2,
+        height: b.height + pad * 2
+      };
+    }
+
+    // Render offscreen canvas
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = Math.round(targetBounds.width * scale);
+    offCanvas.height = Math.round(targetBounds.height * scale);
+    const offCtx = offCanvas.getContext('2d');
+
+    if (!transparent) {
+      offCtx.fillStyle = state.canvasBg;
+      offCtx.fillRect(0, 0, offCanvas.width, offCanvas.height);
+    }
+
+    offCtx.scale(scale, scale);
+    offCtx.translate(-targetBounds.x, -targetBounds.y);
+
+    for (const obj of exportObjects) {
+      if (obj.hidden) continue;
+      drawObject(offCtx, obj);
+    }
+
+    // Trigger download
+    const link = document.createElement('a');
+    link.download = `${state.title.trim().replace(/\s+/g, '_') || 'board'}_export_${scale}x.png`;
+    link.href = offCanvas.toDataURL('image/png');
+    link.click();
+
+    modalExport.classList.remove('open');
+  });
+
+  // ----------------------------------------------------
+  // PROJECT JSON SAVE / LOAD & CLEAR
+  // ----------------------------------------------------
+  btnProjectMenu.addEventListener('click', () => {
+    modalProject.classList.add('open');
+  });
+
+  document.getElementById('btn-download-json').addEventListener('click', () => {
+    const payload = {
+      version: '1.0',
+      title: state.title,
+      canvasBg: state.canvasBg,
+      gridType: state.gridType,
+      snapToGrid: state.snapToGrid,
+      objects: state.objects.map(serializeObjectForHistory)
+    };
+    const jsonStr = JSON.stringify(payload, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `${state.title.trim().replace(/\s+/g, '_') || 'board'}.infinite`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+    modalProject.classList.remove('open');
+  });
+
+  document.getElementById('btn-trigger-json-upload').addEventListener('click', () => {
+    document.getElementById('json-file-input').click();
+  });
+
+  document.getElementById('json-file-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        recordHistory();
+        state.title = data.title || 'Imported Board';
+        boardTitleInput.value = state.title;
+        state.canvasBg = data.canvasBg || '#ffffff';
+        state.gridType = data.gridType || 'dots';
+        state.snapToGrid = !!data.snapToGrid;
+        propGridType.value = state.gridType;
+        propSnapGrid.checked = state.snapToGrid;
+        canvasBgPreview.style.backgroundColor = state.canvasBg;
+
+        state.objects = (data.objects || []).map(obj => {
+          if (obj.type === 'image' && obj.src) {
+            const img = new Image();
+            img.src = obj.src;
+            obj.imageElement = img;
+          }
+          return obj;
+        });
+
+        centerViewportOnObjects();
+        updateInspector();
+        updateLayersList();
+        scheduleAutosave();
+        modalProject.classList.remove('open');
+      } catch (err) {
+        alert('Invalid Infinite project JSON file.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  document.getElementById('btn-clear-canvas').addEventListener('click', () => {
+    if (confirm('Are you sure you want to clear the entire whiteboard? This can be undone.')) {
+      recordHistory();
+      state.objects = [];
+      state.selectedIds.clear();
+      updateInspector();
+      updateLayersList();
+      requestRender();
+      modalProject.classList.remove('open');
+    }
+  });
+
+  // Modal close handlers
+  document.querySelectorAll('[data-close-modal]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('open'));
+    });
+  });
+
+  window.addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal-backdrop')) {
+      e.target.classList.remove('open');
+    }
+  });
+
+  btnShortcutsModal.addEventListener('click', () => {
+    modalShortcuts.classList.add('open');
+  });
+
+  // Board Title Editing
+  boardTitleInput.addEventListener('change', () => {
+    state.title = boardTitleInput.value.trim() || 'Untitled Board';
+    boardTitleInput.value = state.title;
+    scheduleAutosave();
+  });
+
+  // ----------------------------------------------------
+  // KEYBOARD SHORTCUTS ENGINE
+  // ----------------------------------------------------
+  window.addEventListener('keydown', (e) => {
+    // If typing in any input, textarea, or contentEditable, do not trigger tool shortcuts
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+      return;
+    }
+
+    if (e.code === 'Space' && !isSpacePressed) {
+      isSpacePressed = true;
+      canvasViewport.classList.add('panning');
+      return;
+    }
+
+    const isCtrl = e.ctrlKey || e.metaKey;
+
+    // Undo / Redo
+    if (isCtrl && (e.key === 'z' || e.key === 'Z')) {
+      e.preventDefault();
+      if (e.shiftKey) redo();
+      else undo();
+      return;
+    }
+    if (isCtrl && (e.key === 'y' || e.key === 'Y')) {
+      e.preventDefault();
+      redo();
+      return;
+    }
+
+    // Copy / Paste / Duplicate / Select All
+    if (isCtrl && (e.key === 'c' || e.key === 'C')) {
+      e.preventDefault();
+      copySelected();
+      return;
+    }
+    if (isCtrl && (e.key === 'v' || e.key === 'V')) {
+      e.preventDefault();
+      pasteClipboard();
+      return;
+    }
+    if (isCtrl && (e.key === 'd' || e.key === 'D')) {
+      e.preventDefault();
+      duplicateSelected();
+      return;
+    }
+    if (isCtrl && (e.key === 'a' || e.key === 'A')) {
+      e.preventDefault();
+      state.selectedIds.clear();
+      state.objects.forEach(o => { if (!o.hidden) state.selectedIds.add(o.id); });
+      updateInspector();
+      updateLayersList();
+      requestRender();
+      return;
+    }
+
+    // Delete / Backspace
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      deleteSelected();
+      return;
+    }
+
+    // Escape => Deselect
+    if (e.key === 'Escape') {
+      state.selectedIds.clear();
+      updateInspector();
+      updateLayersList();
+      requestRender();
+      closeContextMenu();
+      document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('open'));
+      return;
+    }
+
+    // Tool switching
+    switch (e.key.toLowerCase()) {
+      case 'v': setActiveTool('select'); break;
+      case 'h': setActiveTool('hand'); break;
+      case 'p': setActiveTool('pencil'); break;
+      case 'e': setActiveTool('eraser'); break;
+      case 'r': setActiveTool('rect'); break;
+      case 'o': setActiveTool('circle'); break;
+      case 'l': setActiveTool('line'); break;
+      case 'a': setActiveTool('arrow'); break;
+      case 't': setActiveTool('text'); break;
+      case 'n': setActiveTool('sticky'); break;
+      case '[': sendToBack(); break;
+      case ']': bringToFront(); break;
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') {
+      isSpacePressed = false;
+      if (state.activeTool !== 'hand') {
+        canvasViewport.classList.remove('panning');
+      }
+    }
+  });
+
+  btnUndo.addEventListener('click', undo);
+  btnRedo.addEventListener('click', redo);
+
+  // ----------------------------------------------------
+  // INITIALIZATION
+  // ----------------------------------------------------
+  function init() {
+    resizeCanvas();
+    loadFromLocalStorage();
+    updateHistoryButtons();
+
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+  }
+
+  // Run when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>
+```
